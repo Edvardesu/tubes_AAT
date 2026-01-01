@@ -1,0 +1,38 @@
+{
+  "name": "@lapor-pakdhe/analytics-service",
+  "version": "1.0.0",
+  "description": "Analytics and statistics service for Lapor Pakdhe",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "clean": "rimraf dist"
+  },
+  "keywords": ["lapor-pakdhe", "analytics-service"],
+  "author": "IF4031 Team",
+  "license": "MIT",
+  "dependencies": {
+    "@lapor-pakdhe/prisma-client": "^1.0.0",
+    "@lapor-pakdhe/shared": "^1.0.0",
+    "express": "^4.18.2",
+    "ioredis": "^5.3.2",
+    "express-validator": "^7.0.1",
+    "helmet": "^7.1.0",
+    "cors": "^2.8.5",
+    "compression": "^1.7.4",
+    "winston": "^3.11.0",
+    "amqplib": "^0.10.3",
+    "date-fns": "^3.0.6"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/compression": "^1.7.5",
+    "@types/node": "^20.10.0",
+    "@types/amqplib": "^0.10.4",
+    "typescript": "^5.3.0",
+    "ts-node-dev": "^2.0.0",
+    "rimraf": "^5.0.5"
+  }
+}

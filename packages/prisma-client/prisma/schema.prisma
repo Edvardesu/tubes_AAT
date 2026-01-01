@@ -1,0 +1,387 @@
+// Lapor Pakdhe - Prisma Schema
+// Sistem Pelaporan Warga Terdistribusi
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum ReportType {
+  PUBLIC    // Dapat dilihat semua warga
+  PRIVATE   // Hanya pelapor dan penerima
+  ANONYMOUS // Identitas tersembunyi
+}
+
+enum ReportStatus {
+  PENDING           // Baru dibuat, belum diproses
+  RECEIVED          // Diterima oleh sistem
+  IN_REVIEW         // Sedang ditinjau
+  ASSIGNED          // Sudah ditugaskan ke petugas
+  IN_PROGRESS       // Sedang dikerjakan
+  WAITING_FEEDBACK  // Menunggu feedback pelapor
+  RESOLVED          // Selesai
+  CLOSED            // Ditutup
+  REJECTED          // Ditolak
+  ESCALATED         // Dieskalasi ke level atas
+}
+
+enum ReportCategory {
+  SECURITY          // Keamanan & Ketertiban
+  CLEANLINESS       // Kebersihan & Lingkungan
+  HEALTH            // Kesehatan
+  INFRASTRUCTURE    // Infrastruktur
+  SOCIAL            // Sosial
+  PERMITS           // Perizinan & Administrasi
+}
+
+enum NotificationType {
+  REPORT_CREATED
+  REPORT_ASSIGNED
+  STATUS_UPDATED
+  REPORT_ESCALATED
+  REPORT_RESOLVED
+  REPORT_COMMENTED
+  UPVOTE_RECEIVED
+  SYSTEM_ANNOUNCEMENT
+}
+
+enum StaffLevel {
+  LEVEL_1  // Petugas Lapangan
+  LEVEL_2  // Kepala Dinas
+  LEVEL_3  // Walikota/Sekda
+}
+
+// ==================== MODELS ====================
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  fullName      String    @map("full_name")
+  phone         String?
+  nik           String?   @unique
+  address       String?
+  avatarUrl     String?   @map("avatar_url")
+  isVerified    Boolean   @default(false) @map("is_verified")
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  roles              UserRole[]
+  staffProfile       StaffMember?
+  reports            Report[]        @relation("ReporterReports")
+  assignedReports    Report[]        @relation("AssignedReports")
+  statusChanges      StatusHistory[] @relation("StatusChanger")
+  notifications      Notification[]
+  upvotes            ReportUpvote[]
+  refreshTokens      RefreshToken[]
+  notificationPrefs  NotificationPreference?
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  level       Int      @default(0)
+  permissions Json     @default("[]")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  users UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  roleId    String   @map("role_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Department {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  code        String   @unique
+  description String?
+  email       String?
+  phone       String?
+  parentId    String?  @map("parent_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  parent       Department?   @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children     Department[]  @relation("DepartmentHierarchy")
+  staffMembers StaffMember[]
+  reports      Report[]
+  routingRules RoutingRule[]
+
+  @@map("departments")
+}
+
+model StaffMember {
+  id           String     @id @default(uuid())
+  userId       String     @unique @map("user_id")
+  departmentId String     @map("department_id")
+  position     String
+  level        StaffLevel @default(LEVEL_1)
+  superiorId   String?    @map("superior_id")
+  isActive     Boolean    @default(true) @map("is_active")
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  // Relations
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department   Department   @relation(fields: [departmentId], references: [id])
+  superior     StaffMember? @relation("StaffHierarchy", fields: [superiorId], references: [id])
+  subordinates StaffMember[] @relation("StaffHierarchy")
+
+  @@map("staff_members")
+}
+
+model Report {
+  id              String         @id @default(uuid())
+  referenceNumber String         @unique @map("reference_number")
+  title           String
+  description     String
+  category        ReportCategory
+  type            ReportType     @default(PUBLIC)
+  status          ReportStatus   @default(PENDING)
+  priority        Int            @default(3) // 1=highest, 5=lowest
+
+  // Location
+  locationLat     Float?         @map("location_lat")
+  locationLng     Float?         @map("location_lng")
+  locationAddress String?        @map("location_address")
+
+  // Relations IDs
+  reporterId      String?        @map("reporter_id")
+  departmentId    String?        @map("department_id")
+  assignedToId    String?        @map("assigned_to_id")
+
+  // Flags & Counters
+  isAnonymous     Boolean        @default(false) @map("is_anonymous")
+  upvoteCount     Int            @default(0) @map("upvote_count")
+  viewCount       Int            @default(0) @map("view_count")
+
+  // SLA & Escalation
+  slaDeadline      DateTime?     @map("sla_deadline")
+  escalationLevel  Int           @default(1) @map("escalation_level")
+  lastEscalatedAt  DateTime?     @map("last_escalated_at")
+
+  // Timestamps
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  resolvedAt      DateTime?      @map("resolved_at")
+
+  // Relations
+  reporter        User?          @relation("ReporterReports", fields: [reporterId], references: [id])
+  department      Department?    @relation(fields: [departmentId], references: [id])
+  assignedTo      User?          @relation("AssignedReports", fields: [assignedToId], references: [id])
+  anonymousData   AnonymousReport?
+  media           ReportMedia[]
+  upvotes         ReportUpvote[]
+  statusHistory   StatusHistory[]
+  externalForwards ExternalForward[]
+
+  @@index([status])
+  @@index([category])
+  @@index([departmentId])
+  @@index([reporterId])
+  @@index([createdAt])
+  @@index([slaDeadline])
+  @@index([referenceNumber])
+  @@map("reports")
+}
+
+model AnonymousReport {
+  id              String   @id @default(uuid())
+  reportId        String   @unique @map("report_id")
+  encryptedUserId String   @map("encrypted_user_id")
+  encryptionKeyId String   @map("encryption_key_id")
+  trackingToken   String   @unique @map("tracking_token")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Relations
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([trackingToken])
+  @@map("anonymous_reports")
+}
+
+model ReportMedia {
+  id         String   @id @default(uuid())
+  reportId   String   @map("report_id")
+  filePath   String   @map("file_path")
+  fileName   String   @map("file_name")
+  fileType   String   @map("file_type")
+  fileSize   Int      @map("file_size")
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  // Relations
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@map("report_media")
+}
+
+model ReportUpvote {
+  id        String   @id @default(uuid())
+  reportId  String   @map("report_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, userId])
+  @@map("report_upvotes")
+}
+
+model StatusHistory {
+  id          String       @id @default(uuid())
+  reportId    String       @map("report_id")
+  oldStatus   ReportStatus @map("old_status")
+  newStatus   ReportStatus @map("new_status")
+  changedById String?      @map("changed_by_id")
+  notes       String?
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  // Relations
+  report    Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  changedBy User?  @relation("StatusChanger", fields: [changedById], references: [id])
+
+  @@index([reportId])
+  @@map("status_history")
+}
+
+model RoutingRule {
+  id           String         @id @default(uuid())
+  category     ReportCategory
+  keywords     String[]
+  departmentId String         @map("department_id")
+  priority     Int            @default(0)
+  isActive     Boolean        @default(true) @map("is_active")
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  // Relations
+  department Department @relation(fields: [departmentId], references: [id])
+
+  @@map("routing_rules")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id                    String   @id @default(uuid())
+  userId                String   @unique @map("user_id")
+
+  // Channel preferences
+  emailEnabled          Boolean  @default(true) @map("email_enabled")
+  pushEnabled           Boolean  @default(true) @map("push_enabled")
+  inAppEnabled          Boolean  @default(true) @map("in_app_enabled")
+
+  // Type preferences (which notification types to receive)
+  reportCreated         Boolean  @default(true) @map("report_created")
+  reportAssigned        Boolean  @default(true) @map("report_assigned")
+  statusUpdated         Boolean  @default(true) @map("status_updated")
+  reportEscalated       Boolean  @default(true) @map("report_escalated")
+  reportResolved        Boolean  @default(true) @map("report_resolved")
+  reportCommented       Boolean  @default(true) @map("report_commented")
+  upvoteReceived        Boolean  @default(true) @map("upvote_received")
+  systemAnnouncement    Boolean  @default(true) @map("system_announcement")
+
+  // Quiet hours (optional)
+  quietHoursEnabled     Boolean  @default(false) @map("quiet_hours_enabled")
+  quietHoursStart       String?  @map("quiet_hours_start") // e.g., "22:00"
+  quietHoursEnd         String?  @map("quiet_hours_end")   // e.g., "07:00"
+
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+model ExternalForward {
+  id              String   @id @default(uuid())
+  reportId        String   @map("report_id")
+  externalSystem  String   @map("external_system")
+  externalRefId   String?  @map("external_ref_id")
+  status          String   @default("PENDING")
+  requestPayload  Json?    @map("request_payload")
+  responsePayload Json?    @map("response_payload")
+  forwardedAt     DateTime @default(now()) @map("forwarded_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@map("external_forwards")
+}
+
+model SystemConfig {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_config")
+}
+
+model ReportSequence {
+  id       String @id @default(uuid())
+  year     Int    @unique
+  sequence Int    @default(0)
+
+  @@map("report_sequences")
+}

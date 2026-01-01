@@ -1,0 +1,60 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files: []
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['api-gateway:8080']
+    metrics_path: /metrics
+
+  - job_name: 'user-service'
+    static_configs:
+      - targets: ['user-service:8001']
+    metrics_path: /metrics
+
+  - job_name: 'report-service'
+    static_configs:
+      - targets: ['report-service:8002']
+    metrics_path: /metrics
+
+  - job_name: 'notification-service'
+    static_configs:
+      - targets: ['notification-service:8003']
+    metrics_path: /metrics
+
+  - job_name: 'analytics-service'
+    static_configs:
+      - targets: ['analytics-service:8004']
+    metrics_path: /metrics
+
+  - job_name: 'routing-service'
+    static_configs:
+      - targets: ['routing-service:8005']
+    metrics_path: /metrics
+
+  - job_name: 'escalation-service'
+    static_configs:
+      - targets: ['escalation-service:8006']
+    metrics_path: /metrics
+
+  - job_name: 'external-integration'
+    static_configs:
+      - targets: ['external-integration:8007']
+    metrics_path: /metrics
+
+  - job_name: 'websocket-server'
+    static_configs:
+      - targets: ['websocket-server:8081']
+    metrics_path: /metrics

@@ -1,0 +1,42 @@
+{
+  "name": "@lapor-pakdhe/prisma-client",
+  "version": "1.0.0",
+  "description": "Prisma client and database schema for Lapor Pakdhe",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist",
+    "generate": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:reset": "prisma migrate reset",
+    "db:push": "prisma db push",
+    "seed": "ts-node prisma/seed.ts",
+    "reset": "prisma migrate reset --force",
+    "studio": "prisma studio"
+  },
+  "keywords": [
+    "lapor-pakdhe",
+    "prisma",
+    "database"
+  ],
+  "author": "IF4031 Team",
+  "license": "MIT",
+  "dependencies": {
+    "@prisma/client": "^5.7.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.7.0",
+    "typescript": "^5.3.0",
+    "ts-node": "^10.9.2",
+    "rimraf": "^5.0.5",
+    "@types/node": "^20.10.0",
+    "@types/bcryptjs": "^2.4.6",
+    "bcryptjs": "^2.4.3"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  }
+}

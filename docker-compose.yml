@@ -1,0 +1,416 @@
+version: '3.8'
+
+services:
+  # ==================== INFRASTRUCTURE ====================
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: lapor-pakdhe-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: lapor_pakdhe
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lapor-pakdhe-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: lapor-pakdhe-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lapor-pakdhe-network
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: lapor-pakdhe-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - lapor-pakdhe-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: lapor-pakdhe-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - lapor-pakdhe-network
+
+  # MinIO bucket initialization
+  minio-init:
+    image: minio/mc:latest
+    container_name: lapor-pakdhe-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      mc mb myminio/reports-media --ignore-existing;
+      mc anonymous set public myminio/reports-media;
+      exit 0;
+      "
+    networks:
+      - lapor-pakdhe-network
+
+  # ==================== SERVICES ====================
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: lapor-pakdhe-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=development
+      - API_GATEWAY_PORT=8080
+      - USER_SERVICE_URL=http://user-service:8001
+      - REPORT_SERVICE_URL=http://report-service:8002
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8003
+      - ANALYTICS_SERVICE_URL=http://analytics-service:8004
+      - ROUTING_SERVICE_URL=http://routing-service:8005
+      - ESCALATION_SERVICE_URL=http://escalation-service:8006
+      - EXTERNAL_INTEGRATION_URL=http://external-integration:8007
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - lapor-pakdhe-network
+    profiles:
+      - services
+
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    container_name: lapor-pakdhe-user
+    ports:
+      - "8001:8001"
+    environment:
+      - NODE_ENV=development
+      - USER_SERVICE_PORT=8001
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/lapor_pakdhe
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-your-super-secret-jwt-access-key}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-your-super-secret-jwt-refresh-key}
+      - JWT_ACCESS_EXPIRY=24h
+      - JWT_REFRESH_EXPIRY=7d
+      - BCRYPT_ROUNDS=12
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - lapor-pakdhe-network
+    profiles:
+      - services
+
+  report-service:
+    build:
+      context: ./services/report-service
+      dockerfile: Dockerfile
+    container_name: lapor-pakdhe-report
+    ports:
+      - "8002:8002"
+    environment:
+      - NODE_ENV=development
+      - PORT=8002
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/lapor_pakdhe
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET=reports-media
+      - MINIO_USE_SSL=false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - lapor-pakdhe-network
+    profiles:
+      - services
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notification-service/Dockerfile
+    container_name: lapor-pakdhe-notification
+    ports:
+      - "8003:8003"
+    environment:
+      - NODE_ENV=development
+      - NOTIFICATION_SERVICE_PORT=8003
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/lapor_pakdhe
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-your-super-secret-jwt-access-key}
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+      # SMTP (Mock for PoC)
+      - SMTP_HOST=smtp.example.com
+      - SMTP_PORT=587
+      - SMTP_USER=noreply@lapor-pakdhe.id
+      - SMTP_FROM=Lapor Pakdhe <noreply@lapor-pakdhe.id>
+      - SMTP_MOCK_MODE=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - lapor-pakdhe-network
+    profiles:
+      - services
+
+  analytics-service:
+    build:
+      context: ./services/analytics-service
+      dockerfile: Dockerfile
+    container_name: lapor-pakdhe-analytics
+    ports:
+      - "8004:8004"
+    environment:
+      - NODE_ENV=development
+      - PORT=8004
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/lapor_pakdhe
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - lapor-pakdhe-network
+    profiles:
+      - services
+
+  routing-service:
+    build:
+      context: .
+      dockerfile: services/routing-service/Dockerfile
+    container_name: lapor-pakdhe-routing
+    ports:
+      - "8005:8005"
+    environment:
+      - NODE_ENV=development
+      - ROUTING_SERVICE_PORT=8005
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/lapor_pakdhe
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+      - REPORT_SERVICE_URL=http://report-service:8002
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      report-service:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - lapor-pakdhe-network
+    profiles:
+      - services
+
+  escalation-service:
+    build:
+      context: .
+      dockerfile: services/escalation-service/Dockerfile
+    container_name: lapor-pakdhe-escalation
+    ports:
+      - "8006:8006"
+    environment:
+      - NODE_ENV=development
+      - ESCALATION_SERVICE_PORT=8006
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/lapor_pakdhe
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+      - REPORT_SERVICE_URL=http://report-service:8002
+      - SLA_LEVEL1_HOURS=72
+      - SLA_LEVEL2_HOURS=168
+      - ESCALATION_CHECK_CRON=*/5 * * * *
+      - ESCALATION_REPORT_CRON=0 * * * *
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      report-service:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - lapor-pakdhe-network
+    profiles:
+      - services
+
+  external-integration:
+    build:
+      context: ./services/external-integration
+      dockerfile: Dockerfile
+    container_name: lapor-pakdhe-external
+    ports:
+      - "8007:8007"
+    environment:
+      - NODE_ENV=development
+      - PORT=8007
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/lapor_pakdhe
+      - RABBITMQ_URL=amqp://admin:admin@rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - lapor-pakdhe-network
+    profiles:
+      - services
+
+  websocket-server:
+    build:
+      context: ./services/websocket-server
+      dockerfile: Dockerfile
+    container_name: lapor-pakdhe-websocket
+    ports:
+      - "8081:8081"
+    environment:
+      - NODE_ENV=development
+      - PORT=8081
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-your-super-secret-jwt-access-key}
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - lapor-pakdhe-network
+    profiles:
+      - services
+
+  # ==================== FRONTEND ====================
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lapor-pakdhe-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8080/api/v1
+      - VITE_WS_URL=http://localhost:8081
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+    networks:
+      - lapor-pakdhe-network
+    profiles:
+      - frontend
+
+  # ==================== MONITORING (Optional) ====================
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: lapor-pakdhe-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - lapor-pakdhe-network
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: lapor-pakdhe-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    networks:
+      - lapor-pakdhe-network
+    profiles:
+      - monitoring
+
+networks:
+  lapor-pakdhe-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:

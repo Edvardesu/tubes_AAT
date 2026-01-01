@@ -1,0 +1,58 @@
+{
+  "name": "lapor-pakdhe",
+  "version": "1.0.0",
+  "description": "Sistem Pelaporan Warga Terpadu - Distributed Citizen Reporting System",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "frontend"
+  ],
+  "scripts": {
+    "db:generate": "npm run generate --workspace=packages/prisma-client",
+    "db:migrate": "npm run migrate:dev --workspace=packages/prisma-client",
+    "db:push": "npm run db:push --workspace=packages/prisma-client",
+    "db:seed": "npm run seed --workspace=packages/prisma-client",
+    "db:reset": "npm run reset --workspace=packages/prisma-client",
+    "db:studio": "npm run studio --workspace=packages/prisma-client",
+    "build:shared": "npm run build --workspace=packages/shared",
+    "build:prisma": "npm run build --workspace=packages/prisma-client",
+    "build:packages": "npm run build:shared && npm run build:prisma",
+    "dev:user": "npm run dev --workspace=services/user-service",
+    "dev:report": "npm run dev --workspace=services/report-service",
+    "dev:gateway": "npm run dev --workspace=services/api-gateway",
+    "dev:notification": "npm run dev --workspace=services/notification-service",
+    "dev:analytics": "npm run dev --workspace=services/analytics-service",
+    "dev:routing": "npm run dev --workspace=services/routing-service",
+    "dev:escalation": "npm run dev --workspace=services/escalation-service",
+    "dev:external": "npm run dev --workspace=services/external-integration",
+    "dev:websocket": "npm run dev --workspace=services/websocket-server",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
+  },
+  "keywords": [
+    "microservices",
+    "distributed-systems",
+    "citizen-reporting",
+    "typescript",
+    "express",
+    "prisma",
+    "rabbitmq",
+    "redis"
+  ],
+  "author": "IF4031 Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "prettier": "^3.1.0",
+    "eslint": "^8.55.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0"
+  }
+}

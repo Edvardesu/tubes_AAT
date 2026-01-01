@@ -1,0 +1,31 @@
+{
+  "name": "@lapor-pakdhe/shared",
+  "version": "1.0.0",
+  "description": "Shared types, utilities, and constants for Lapor Pakdhe",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "lapor-pakdhe",
+    "shared",
+    "types",
+    "utils"
+  ],
+  "author": "IF4031 Team",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "rimraf": "^5.0.5"
+  },
+  "dependencies": {
+    "uuid": "^9.0.0",
+    "zod": "^3.22.4"
+  },
+  "peerDependencies": {
+    "@types/uuid": "^9.0.0"
+  }
+}
