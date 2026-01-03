@@ -6,6 +6,9 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Manrope', 'ui-sans-serif', 'system-ui', 'Helvetica', 'Arial', 'sans-serif'],
+      },
       colors: {
         primary: {
           50: '#eff6ff',
