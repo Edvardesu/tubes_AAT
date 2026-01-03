@@ -119,8 +119,15 @@ export function useAuth() {
 // Helper to check user roles
 export function useHasRole(roleNames: string[]): boolean {
   const { user } = useAuth();
-  if (!user) return false;
-  return user.roles.some((ur) => roleNames.includes(ur.role.name));
+  if (!user || !user.roles) return false;
+
+  // Handle both formats: string[] or UserRole[]
+  return user.roles.some((ur) => {
+    if (typeof ur === 'string') {
+      return roleNames.includes(ur);
+    }
+    return ur.role && roleNames.includes(ur.role.name);
+  });
 }
 
 export function useIsAdmin(): boolean {

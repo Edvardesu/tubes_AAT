@@ -11,7 +11,7 @@ export interface User {
   isVerified: boolean;
   isActive: boolean;
   role?: string; // Simplified role
-  roles: UserRole[];
+  roles: (string | UserRole)[]; // Backend may return string[] or UserRole[]
   staffProfile?: StaffMember;
   createdAt: string;
   updatedAt: string;
