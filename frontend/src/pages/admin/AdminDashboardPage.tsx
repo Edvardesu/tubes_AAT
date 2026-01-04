@@ -26,12 +26,12 @@ export function AdminDashboardPage() {
     queryFn: () => analyticsService.getDashboardStats(),
   });
 
-  // Use department reports for staff
+  // Use department reports for staff - fetch more to calculate stats
   const { data: reportsData } = useQuery({
     queryKey: ['recentReportsAdmin', isStaff],
     queryFn: () =>
       isStaff
-        ? reportService.getDepartmentReports({ limit: 10 })
+        ? reportService.getDepartmentReports({ limit: 100 })
         : reportService.getReports({ limit: 10 }),
   });
 
@@ -42,9 +42,36 @@ export function AdminDashboardPage() {
     enabled: isPejabatUtama,
   });
 
-  const stats = statsData?.data;
-  const reports = reportsData?.data?.reports || [];
+  const globalStats = statsData?.data;
+  const allReports = reportsData?.data?.reports || [];
+  const reports = allReports.slice(0, 10); // Show only 10 in table
   const escalatedCount = escalatedData?.data?.meta?.total || 0;
+
+  // Calculate department-specific stats for staff
+  const departmentStats = isStaff ? {
+    totalReports: reportsData?.data?.meta?.total || allReports.length,
+    pendingReports: allReports.filter((r: any) =>
+      ['PENDING', 'RECEIVED', 'IN_REVIEW'].includes(r.status)
+    ).length,
+    inProgressReports: allReports.filter((r: any) =>
+      ['ASSIGNED', 'IN_PROGRESS'].includes(r.status)
+    ).length,
+    resolvedReports: allReports.filter((r: any) => r.status === 'RESOLVED').length,
+    escalatedReports: allReports.filter((r: any) => r.status === 'ESCALATED').length,
+    todayReports: allReports.filter((r: any) => {
+      const today = new Date();
+      const reportDate = new Date(r.createdAt);
+      return reportDate.toDateString() === today.toDateString();
+    }).length,
+    weekReports: allReports.filter((r: any) => {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return new Date(r.createdAt) >= weekAgo;
+    }).length,
+  } : null;
+
+  // Use department stats for staff, global stats for admin
+  const stats = isStaff ? departmentStats : globalStats;
 
   // Determine title based on role
   const getDashboardTitle = () => {
