@@ -2,9 +2,14 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from '
 import type { User, AuthState } from '@/types';
 import { authService } from '@/services/auth.service';
 
+interface RegisterResult {
+  success: boolean;
+  error?: string;
+}
+
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<boolean>;
-  register: (data: { email: string; password: string; fullName: string; phone?: string }) => Promise<boolean>;
+  register: (data: { email: string; password: string; fullName: string; phone?: string }) => Promise<RegisterResult>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -75,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string;
     fullName: string;
     phone?: string;
-  }): Promise<boolean> => {
+  }): Promise<RegisterResult> => {
     const response = await authService.register(data);
     if (response.success && response.data) {
       setState({
@@ -84,9 +89,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: true,
         isLoading: false,
       });
-      return true;
+      return { success: true };
     }
-    return false;
+    // Extract error message from response
+    let errorMessage = 'Gagal mendaftar. Silakan coba lagi.';
+    if (response.error) {
+      if (response.error.details) {
+        // Get first validation error
+        const firstField = Object.keys(response.error.details)[0];
+        if (firstField && response.error.details[firstField]?.[0]) {
+          errorMessage = response.error.details[firstField][0];
+        }
+      } else if (response.error.message) {
+        errorMessage = response.error.message;
+      }
+    }
+    return { success: false, error: errorMessage };
   };
 
   const logout = async (): Promise<void> => {

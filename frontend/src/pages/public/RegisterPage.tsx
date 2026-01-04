@@ -11,7 +11,12 @@ const registerSchema = z.object({
   fullName: z.string().min(3, 'Nama minimal 3 karakter'),
   email: z.string().email('Email tidak valid'),
   phone: z.string().optional(),
-  password: z.string().min(6, 'Password minimal 6 karakter'),
+  password: z.string()
+    .min(8, 'Password minimal 8 karakter')
+    .regex(/[A-Z]/, 'Password harus mengandung huruf besar')
+    .regex(/[a-z]/, 'Password harus mengandung huruf kecil')
+    .regex(/[0-9]/, 'Password harus mengandung angka')
+    .regex(/[@$!%*?&]/, 'Password harus mengandung karakter spesial (@$!%*?&)'),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Password tidak cocok',
@@ -40,17 +45,17 @@ export function RegisterPage() {
     setIsLoading(true);
 
     try {
-      const success = await registerUser({
+      const result = await registerUser({
         email: data.email,
         password: data.password,
         fullName: data.fullName,
         phone: data.phone,
       });
 
-      if (success) {
+      if (result.success) {
         navigate('/dashboard');
       } else {
-        setError('Gagal mendaftar. Email mungkin sudah digunakan.');
+        setError(result.error || 'Gagal mendaftar. Silakan coba lagi.');
       }
     } catch {
       setError('Terjadi kesalahan. Silakan coba lagi.');

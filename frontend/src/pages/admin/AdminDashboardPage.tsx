@@ -26,12 +26,12 @@ export function AdminDashboardPage() {
     queryFn: () => analyticsService.getDashboardStats(),
   });
 
-  // Use department reports for staff - fetch more to calculate stats
+  // Use department reports for staff - fetch more to calculate stats (max 50 allowed by backend)
   const { data: reportsData } = useQuery({
     queryKey: ['recentReportsAdmin', isStaff],
     queryFn: () =>
       isStaff
-        ? reportService.getDepartmentReports({ limit: 100 })
+        ? reportService.getDepartmentReports({ limit: 50 })
         : reportService.getReports({ limit: 10 }),
   });
 
