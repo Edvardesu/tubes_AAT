@@ -11,7 +11,7 @@ async function main() {
   const roles = await Promise.all([
     prisma.role.upsert({
       where: { name: 'CITIZEN' },
-      update: {},
+      update: { description: 'Warga biasa' },
       create: {
         name: 'CITIZEN',
         description: 'Warga biasa',
@@ -21,42 +21,32 @@ async function main() {
     }),
     prisma.role.upsert({
       where: { name: 'STAFF_L1' },
-      update: {},
+      update: { description: 'Pejabat Muda - mengerjakan laporan' },
       create: {
         name: 'STAFF_L1',
-        description: 'Petugas Lapangan',
+        description: 'Pejabat Muda - mengerjakan laporan',
         level: 1,
-        permissions: JSON.stringify(['report:read', 'report:update', 'report:assign']),
+        permissions: JSON.stringify(['report:read', 'report:update', 'report:assign', 'report:escalate']),
       },
     }),
     prisma.role.upsert({
       where: { name: 'STAFF_L2' },
-      update: {},
+      update: { description: 'Pejabat Utama - memantau kinerja dan menerima eskalasi' },
       create: {
         name: 'STAFF_L2',
-        description: 'Kepala Dinas',
+        description: 'Pejabat Utama - memantau kinerja dan menerima eskalasi',
         level: 2,
-        permissions: JSON.stringify(['report:read', 'report:update', 'report:assign', 'report:escalate', 'staff:manage']),
-      },
-    }),
-    prisma.role.upsert({
-      where: { name: 'STAFF_L3' },
-      update: {},
-      create: {
-        name: 'STAFF_L3',
-        description: 'Walikota/Sekda',
-        level: 3,
-        permissions: JSON.stringify(['report:read', 'report:update', 'report:assign', 'report:escalate', 'staff:manage', 'analytics:read']),
+        permissions: JSON.stringify(['report:read', 'report:update', 'report:assign', 'report:escalate', 'staff:monitor', 'analytics:read']),
       },
     }),
     prisma.role.upsert({
       where: { name: 'ADMIN' },
-      update: {},
+      update: { description: 'Administrator Sistem - mengelola akun pengguna' },
       create: {
         name: 'ADMIN',
-        description: 'System Administrator',
+        description: 'Administrator Sistem - mengelola akun pengguna',
         level: 99,
-        permissions: JSON.stringify(['*']),
+        permissions: JSON.stringify(['user:manage', 'role:manage', 'system:config']),
       },
     }),
   ]);
@@ -203,21 +193,20 @@ async function main() {
 
   // ==================== USERS ====================
   console.log('Creating users...');
-  const passwordHash = await bcrypt.hash('Admin123!', 10);
-  const wargaPasswordHash = await bcrypt.hash('Warga123!', 10);
-  const petugasPasswordHash = await bcrypt.hash('Petugas123!', 10);
-  const kadisPasswordHash = await bcrypt.hash('Kadis123!', 10);
-  const walikotaPasswordHash = await bcrypt.hash('Walikota123!', 10);
+  const adminPassword = await bcrypt.hash('Admin123!', 10);
+  const wargaPassword = await bcrypt.hash('Warga123!', 10);
+  const pejabatMudaPassword = await bcrypt.hash('Muda123!', 10);
+  const pejabatUtamaPassword = await bcrypt.hash('Utama123!', 10);
 
-  // Admin User
+  // ===== ADMIN USER =====
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@lapor.pakdhe' },
     update: {},
     create: {
       email: 'admin@lapor.pakdhe',
-      passwordHash: passwordHash,
-      fullName: 'System Administrator',
-      phone: '081234567890',
+      passwordHash: adminPassword,
+      fullName: 'Administrator Sistem',
+      phone: '081200000001',
       isVerified: true,
       isActive: true,
     },
@@ -226,21 +215,18 @@ async function main() {
   await prisma.userRole.upsert({
     where: { userId_roleId: { userId: adminUser.id, roleId: roleMap['ADMIN'] } },
     update: {},
-    create: {
-      userId: adminUser.id,
-      roleId: roleMap['ADMIN'],
-    },
+    create: { userId: adminUser.id, roleId: roleMap['ADMIN'] },
   });
 
-  // Citizen User
+  // ===== CITIZEN USER =====
   const citizenUser = await prisma.user.upsert({
     where: { email: 'warga@example.com' },
     update: {},
     create: {
       email: 'warga@example.com',
-      passwordHash: wargaPasswordHash,
+      passwordHash: wargaPassword,
       fullName: 'Budi Santoso',
-      phone: '081234567891',
+      phone: '081200000002',
       nik: '3273012345670001',
       address: 'Jl. Merdeka No. 123, Bandung',
       isVerified: true,
@@ -251,122 +237,269 @@ async function main() {
   await prisma.userRole.upsert({
     where: { userId_roleId: { userId: citizenUser.id, roleId: roleMap['CITIZEN'] } },
     update: {},
-    create: {
-      userId: citizenUser.id,
-      roleId: roleMap['CITIZEN'],
-    },
+    create: { userId: citizenUser.id, roleId: roleMap['CITIZEN'] },
   });
 
-  // Staff Level 1 - Petugas Infrastruktur
-  const staffL1User = await prisma.user.upsert({
-    where: { email: 'petugas@infra.go.id' },
-    update: {},
-    create: {
-      email: 'petugas@infra.go.id',
-      passwordHash: petugasPasswordHash,
-      fullName: 'Ahmad Petugas',
-      phone: '081234567892',
-      isVerified: true,
-      isActive: true,
-    },
-  });
+  // ===== PEJABAT PER BIDANG =====
+  // Helper function to create pejabat
+  const createPejabat = async (
+    email: string,
+    fullName: string,
+    phone: string,
+    roleId: string,
+    passwordHash: string
+  ) => {
+    const user = await prisma.user.upsert({
+      where: { email },
+      update: {},
+      create: {
+        email,
+        passwordHash,
+        fullName,
+        phone,
+        isVerified: true,
+        isActive: true,
+      },
+    });
 
-  await prisma.userRole.upsert({
-    where: { userId_roleId: { userId: staffL1User.id, roleId: roleMap['STAFF_L1'] } },
-    update: {},
-    create: {
-      userId: staffL1User.id,
-      roleId: roleMap['STAFF_L1'],
-    },
-  });
+    await prisma.userRole.upsert({
+      where: { userId_roleId: { userId: user.id, roleId } },
+      update: {},
+      create: { userId: user.id, roleId },
+    });
 
-  // Staff Level 2 - Kepala Dinas Infrastruktur
-  const staffL2User = await prisma.user.upsert({
-    where: { email: 'kadis@infra.go.id' },
-    update: {},
-    create: {
-      email: 'kadis@infra.go.id',
-      passwordHash: kadisPasswordHash,
-      fullName: 'Ir. Suharto Kepala',
-      phone: '081234567893',
-      isVerified: true,
-      isActive: true,
-    },
-  });
+    return user;
+  };
 
-  await prisma.userRole.upsert({
-    where: { userId_roleId: { userId: staffL2User.id, roleId: roleMap['STAFF_L2'] } },
-    update: {},
-    create: {
-      userId: staffL2User.id,
-      roleId: roleMap['STAFF_L2'],
-    },
-  });
+  // ----- BIDANG KEAMANAN -----
+  const keamananUtama = await createPejabat(
+    'utama.keamanan@pemkot.go.id',
+    'Kombes Bambang Sutrisno',
+    '081200001001',
+    roleMap['STAFF_L2'],
+    pejabatUtamaPassword
+  );
+  const keamananMuda1 = await createPejabat(
+    'muda1.keamanan@pemkot.go.id',
+    'AKP Rudi Hartono',
+    '081200001002',
+    roleMap['STAFF_L1'],
+    pejabatMudaPassword
+  );
+  const keamananMuda2 = await createPejabat(
+    'muda2.keamanan@pemkot.go.id',
+    'Iptu Sri Wahyuni',
+    '081200001003',
+    roleMap['STAFF_L1'],
+    pejabatMudaPassword
+  );
 
-  // Staff Level 3 - Walikota
-  const staffL3User = await prisma.user.upsert({
-    where: { email: 'walikota@pemkot.go.id' },
-    update: {},
-    create: {
-      email: 'walikota@pemkot.go.id',
-      passwordHash: walikotaPasswordHash,
-      fullName: 'H. Ridwan Kamil',
-      phone: '081234567894',
-      isVerified: true,
-      isActive: true,
-    },
-  });
+  // ----- BIDANG KEBERSIHAN -----
+  const kebersihanUtama = await createPejabat(
+    'utama.kebersihan@pemkot.go.id',
+    'Ir. Dewi Lestari, M.Env',
+    '081200002001',
+    roleMap['STAFF_L2'],
+    pejabatUtamaPassword
+  );
+  const kebersihanMuda1 = await createPejabat(
+    'muda1.kebersihan@pemkot.go.id',
+    'Agus Prasetyo',
+    '081200002002',
+    roleMap['STAFF_L1'],
+    pejabatMudaPassword
+  );
+  const kebersihanMuda2 = await createPejabat(
+    'muda2.kebersihan@pemkot.go.id',
+    'Fitri Handayani',
+    '081200002003',
+    roleMap['STAFF_L1'],
+    pejabatMudaPassword
+  );
 
-  await prisma.userRole.upsert({
-    where: { userId_roleId: { userId: staffL3User.id, roleId: roleMap['STAFF_L3'] } },
-    update: {},
-    create: {
-      userId: staffL3User.id,
-      roleId: roleMap['STAFF_L3'],
-    },
-  });
+  // ----- BIDANG KESEHATAN -----
+  const kesehatanUtama = await createPejabat(
+    'utama.kesehatan@pemkot.go.id',
+    'dr. Siti Rahayu, Sp.PD',
+    '081200003001',
+    roleMap['STAFF_L2'],
+    pejabatUtamaPassword
+  );
+  const kesehatanMuda1 = await createPejabat(
+    'muda1.kesehatan@pemkot.go.id',
+    'dr. Andi Wijaya',
+    '081200003002',
+    roleMap['STAFF_L1'],
+    pejabatMudaPassword
+  );
+  const kesehatanMuda2 = await createPejabat(
+    'muda2.kesehatan@pemkot.go.id',
+    'Ns. Linda Permata, S.Kep',
+    '081200003003',
+    roleMap['STAFF_L1'],
+    pejabatMudaPassword
+  );
+
+  // ----- BIDANG INFRASTRUKTUR -----
+  const infrastrukturUtama = await createPejabat(
+    'utama.infrastruktur@pemkot.go.id',
+    'Ir. Hendra Gunawan, MT',
+    '081200004001',
+    roleMap['STAFF_L2'],
+    pejabatUtamaPassword
+  );
+  const infrastrukturMuda1 = await createPejabat(
+    'muda1.infrastruktur@pemkot.go.id',
+    'Dedi Supriadi, ST',
+    '081200004002',
+    roleMap['STAFF_L1'],
+    pejabatMudaPassword
+  );
+  const infrastrukturMuda2 = await createPejabat(
+    'muda2.infrastruktur@pemkot.go.id',
+    'Maya Anggraini, ST',
+    '081200004003',
+    roleMap['STAFF_L1'],
+    pejabatMudaPassword
+  );
+
+  // ----- BIDANG SOSIAL -----
+  const sosialUtama = await createPejabat(
+    'utama.sosial@pemkot.go.id',
+    'Dra. Ratna Kusuma, M.Si',
+    '081200005001',
+    roleMap['STAFF_L2'],
+    pejabatUtamaPassword
+  );
+  const sosialMuda1 = await createPejabat(
+    'muda1.sosial@pemkot.go.id',
+    'Yusuf Rahman, S.Sos',
+    '081200005002',
+    roleMap['STAFF_L1'],
+    pejabatMudaPassword
+  );
+  const sosialMuda2 = await createPejabat(
+    'muda2.sosial@pemkot.go.id',
+    'Ani Suryani, S.Sos',
+    '081200005003',
+    roleMap['STAFF_L1'],
+    pejabatMudaPassword
+  );
+
+  // ----- BIDANG PERIZINAN -----
+  const perizinanUtama = await createPejabat(
+    'utama.perizinan@pemkot.go.id',
+    'H. Ahmad Fauzi, SH, MH',
+    '081200006001',
+    roleMap['STAFF_L2'],
+    pejabatUtamaPassword
+  );
+  const perizinanMuda1 = await createPejabat(
+    'muda1.perizinan@pemkot.go.id',
+    'Budi Setiawan, SH',
+    '081200006002',
+    roleMap['STAFF_L1'],
+    pejabatMudaPassword
+  );
+  const perizinanMuda2 = await createPejabat(
+    'muda2.perizinan@pemkot.go.id',
+    'Nina Marlina, SH',
+    '081200006003',
+    roleMap['STAFF_L1'],
+    pejabatMudaPassword
+  );
 
   console.log('✅ Created users with roles');
 
   // ==================== STAFF MEMBERS ====================
   console.log('Creating staff members...');
 
-  // Kepala Dinas first (so we can assign as superior)
-  const kadisStaff = await prisma.staffMember.upsert({
-    where: { userId: staffL2User.id },
-    update: {},
-    create: {
-      userId: staffL2User.id,
-      departmentId: deptMap['INFRASTRUKTUR'],
-      position: 'Kepala Dinas Infrastruktur',
-      level: StaffLevel.LEVEL_2,
-    },
-  });
+  // Helper function to create staff member
+  const createStaffMember = async (
+    userId: string,
+    departmentId: string,
+    position: string,
+    level: StaffLevel,
+    superiorId?: string
+  ) => {
+    return prisma.staffMember.upsert({
+      where: { userId },
+      update: {},
+      create: {
+        userId,
+        departmentId,
+        position,
+        level,
+        superiorId,
+      },
+    });
+  };
 
-  // Petugas Lapangan (subordinate to Kepala Dinas)
-  await prisma.staffMember.upsert({
-    where: { userId: staffL1User.id },
-    update: {},
-    create: {
-      userId: staffL1User.id,
-      departmentId: deptMap['INFRASTRUKTUR'],
-      position: 'Petugas Lapangan',
-      level: StaffLevel.LEVEL_1,
-      superiorId: kadisStaff.id,
-    },
-  });
+  // ----- BIDANG KEAMANAN -----
+  const keamananUtamaStaff = await createStaffMember(
+    keamananUtama.id, deptMap['KEAMANAN'], 'Pejabat Utama Keamanan', StaffLevel.LEVEL_2
+  );
+  await createStaffMember(
+    keamananMuda1.id, deptMap['KEAMANAN'], 'Pejabat Muda Keamanan', StaffLevel.LEVEL_1, keamananUtamaStaff.id
+  );
+  await createStaffMember(
+    keamananMuda2.id, deptMap['KEAMANAN'], 'Pejabat Muda Keamanan', StaffLevel.LEVEL_1, keamananUtamaStaff.id
+  );
 
-  // Walikota (no specific department)
-  await prisma.staffMember.upsert({
-    where: { userId: staffL3User.id },
-    update: {},
-    create: {
-      userId: staffL3User.id,
-      departmentId: deptMap['INFRASTRUKTUR'], // Assigned to one for demo
-      position: 'Walikota',
-      level: StaffLevel.LEVEL_3,
-    },
-  });
+  // ----- BIDANG KEBERSIHAN -----
+  const kebersihanUtamaStaff = await createStaffMember(
+    kebersihanUtama.id, deptMap['KEBERSIHAN'], 'Pejabat Utama Kebersihan', StaffLevel.LEVEL_2
+  );
+  await createStaffMember(
+    kebersihanMuda1.id, deptMap['KEBERSIHAN'], 'Pejabat Muda Kebersihan', StaffLevel.LEVEL_1, kebersihanUtamaStaff.id
+  );
+  await createStaffMember(
+    kebersihanMuda2.id, deptMap['KEBERSIHAN'], 'Pejabat Muda Kebersihan', StaffLevel.LEVEL_1, kebersihanUtamaStaff.id
+  );
+
+  // ----- BIDANG KESEHATAN -----
+  const kesehatanUtamaStaff = await createStaffMember(
+    kesehatanUtama.id, deptMap['KESEHATAN'], 'Pejabat Utama Kesehatan', StaffLevel.LEVEL_2
+  );
+  await createStaffMember(
+    kesehatanMuda1.id, deptMap['KESEHATAN'], 'Pejabat Muda Kesehatan', StaffLevel.LEVEL_1, kesehatanUtamaStaff.id
+  );
+  await createStaffMember(
+    kesehatanMuda2.id, deptMap['KESEHATAN'], 'Pejabat Muda Kesehatan', StaffLevel.LEVEL_1, kesehatanUtamaStaff.id
+  );
+
+  // ----- BIDANG INFRASTRUKTUR -----
+  const infrastrukturUtamaStaff = await createStaffMember(
+    infrastrukturUtama.id, deptMap['INFRASTRUKTUR'], 'Pejabat Utama Infrastruktur', StaffLevel.LEVEL_2
+  );
+  await createStaffMember(
+    infrastrukturMuda1.id, deptMap['INFRASTRUKTUR'], 'Pejabat Muda Infrastruktur', StaffLevel.LEVEL_1, infrastrukturUtamaStaff.id
+  );
+  await createStaffMember(
+    infrastrukturMuda2.id, deptMap['INFRASTRUKTUR'], 'Pejabat Muda Infrastruktur', StaffLevel.LEVEL_1, infrastrukturUtamaStaff.id
+  );
+
+  // ----- BIDANG SOSIAL -----
+  const sosialUtamaStaff = await createStaffMember(
+    sosialUtama.id, deptMap['SOSIAL'], 'Pejabat Utama Sosial', StaffLevel.LEVEL_2
+  );
+  await createStaffMember(
+    sosialMuda1.id, deptMap['SOSIAL'], 'Pejabat Muda Sosial', StaffLevel.LEVEL_1, sosialUtamaStaff.id
+  );
+  await createStaffMember(
+    sosialMuda2.id, deptMap['SOSIAL'], 'Pejabat Muda Sosial', StaffLevel.LEVEL_1, sosialUtamaStaff.id
+  );
+
+  // ----- BIDANG PERIZINAN -----
+  const perizinanUtamaStaff = await createStaffMember(
+    perizinanUtama.id, deptMap['PERIZINAN'], 'Pejabat Utama Perizinan', StaffLevel.LEVEL_2
+  );
+  await createStaffMember(
+    perizinanMuda1.id, deptMap['PERIZINAN'], 'Pejabat Muda Perizinan', StaffLevel.LEVEL_1, perizinanUtamaStaff.id
+  );
+  await createStaffMember(
+    perizinanMuda2.id, deptMap['PERIZINAN'], 'Pejabat Muda Perizinan', StaffLevel.LEVEL_1, perizinanUtamaStaff.id
+  );
 
   console.log('✅ Created staff members');
 
@@ -421,15 +554,44 @@ async function main() {
   console.log('🎉 Seed completed successfully!');
   console.log('');
   console.log('📋 Test Accounts:');
-  console.log('┌─────────────────────────────┬──────────────┬────────────┐');
-  console.log('│ Email                       │ Password     │ Role       │');
-  console.log('├─────────────────────────────┼──────────────┼────────────┤');
-  console.log('│ admin@lapor.pakdhe          │ Admin123!    │ ADMIN      │');
-  console.log('│ warga@example.com           │ Warga123!    │ CITIZEN    │');
-  console.log('│ petugas@infra.go.id         │ Petugas123!  │ STAFF_L1   │');
-  console.log('│ kadis@infra.go.id           │ Kadis123!    │ STAFF_L2   │');
-  console.log('│ walikota@pemkot.go.id       │ Walikota123! │ STAFF_L3   │');
-  console.log('└─────────────────────────────┴──────────────┴────────────┘');
+  console.log('');
+  console.log('=== ADMIN & WARGA ===');
+  console.log('┌────────────────────────────────────┬──────────────┬─────────────────┐');
+  console.log('│ Email                              │ Password     │ Role            │');
+  console.log('├────────────────────────────────────┼──────────────┼─────────────────┤');
+  console.log('│ admin@lapor.pakdhe                 │ Admin123!    │ Admin Sistem    │');
+  console.log('│ warga@example.com                  │ Warga123!    │ Warga           │');
+  console.log('└────────────────────────────────────┴──────────────┴─────────────────┘');
+  console.log('');
+  console.log('=== PEJABAT UTAMA (per Bidang) - Password: Utama123! ===');
+  console.log('┌────────────────────────────────────┬─────────────────────────────────┐');
+  console.log('│ Email                              │ Bidang                          │');
+  console.log('├────────────────────────────────────┼─────────────────────────────────┤');
+  console.log('│ utama.keamanan@pemkot.go.id        │ Keamanan & Ketertiban           │');
+  console.log('│ utama.kebersihan@pemkot.go.id      │ Kebersihan & Lingkungan         │');
+  console.log('│ utama.kesehatan@pemkot.go.id       │ Kesehatan                       │');
+  console.log('│ utama.infrastruktur@pemkot.go.id   │ Infrastruktur                   │');
+  console.log('│ utama.sosial@pemkot.go.id          │ Sosial                          │');
+  console.log('│ utama.perizinan@pemkot.go.id       │ Perizinan & Administrasi        │');
+  console.log('└────────────────────────────────────┴─────────────────────────────────┘');
+  console.log('');
+  console.log('=== PEJABAT MUDA (per Bidang) - Password: Muda123! ===');
+  console.log('┌────────────────────────────────────┬─────────────────────────────────┐');
+  console.log('│ Email                              │ Bidang                          │');
+  console.log('├────────────────────────────────────┼─────────────────────────────────┤');
+  console.log('│ muda1.keamanan@pemkot.go.id        │ Keamanan & Ketertiban           │');
+  console.log('│ muda2.keamanan@pemkot.go.id        │ Keamanan & Ketertiban           │');
+  console.log('│ muda1.kebersihan@pemkot.go.id      │ Kebersihan & Lingkungan         │');
+  console.log('│ muda2.kebersihan@pemkot.go.id      │ Kebersihan & Lingkungan         │');
+  console.log('│ muda1.kesehatan@pemkot.go.id       │ Kesehatan                       │');
+  console.log('│ muda2.kesehatan@pemkot.go.id       │ Kesehatan                       │');
+  console.log('│ muda1.infrastruktur@pemkot.go.id   │ Infrastruktur                   │');
+  console.log('│ muda2.infrastruktur@pemkot.go.id   │ Infrastruktur                   │');
+  console.log('│ muda1.sosial@pemkot.go.id          │ Sosial                          │');
+  console.log('│ muda2.sosial@pemkot.go.id          │ Sosial                          │');
+  console.log('│ muda1.perizinan@pemkot.go.id       │ Perizinan & Administrasi        │');
+  console.log('│ muda2.perizinan@pemkot.go.id       │ Perizinan & Administrasi        │');
+  console.log('└────────────────────────────────────┴─────────────────────────────────┘');
 }
 
 main()

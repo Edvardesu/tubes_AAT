@@ -593,6 +593,449 @@ class ReportService {
       reporterId: userId,
     }, userId);
   }
+
+  // Get user's report statistics
+  async getUserReportStats(userId: string): Promise<{
+    total: number;
+    pending: number;
+    inProgress: number;
+    resolved: number;
+    rejected: number;
+  }> {
+    const [total, pending, inProgress, resolved, rejected] = await Promise.all([
+      prisma.report.count({ where: { reporterId: userId } }),
+      prisma.report.count({
+        where: {
+          reporterId: userId,
+          status: { in: [ReportStatus.PENDING, ReportStatus.RECEIVED, ReportStatus.IN_REVIEW] },
+        },
+      }),
+      prisma.report.count({
+        where: {
+          reporterId: userId,
+          status: { in: [ReportStatus.ASSIGNED, ReportStatus.IN_PROGRESS] },
+        },
+      }),
+      prisma.report.count({
+        where: { reporterId: userId, status: ReportStatus.RESOLVED },
+      }),
+      prisma.report.count({
+        where: { reporterId: userId, status: ReportStatus.REJECTED },
+      }),
+    ]);
+
+    return { total, pending, inProgress, resolved, rejected };
+  }
+
+  // Update report status (for staff)
+  async updateReportStatus(
+    reportId: string,
+    staffId: string,
+    newStatus: ReportStatus,
+    notes?: string
+  ): Promise<ReportWithDetails> {
+    const report = await prisma.report.findUnique({
+      where: { id: reportId },
+      include: { assignedTo: true },
+    });
+
+    if (!report) {
+      throw Errors.notFound('Report');
+    }
+
+    const oldStatus = report.status;
+
+    // Update report
+    const updated = await prisma.report.update({
+      where: { id: reportId },
+      data: {
+        status: newStatus,
+        resolvedAt: newStatus === ReportStatus.RESOLVED ? new Date() : report.resolvedAt,
+      },
+      include: {
+        reporter: { select: { id: true, fullName: true, avatarUrl: true } },
+        department: { select: { id: true, name: true, code: true } },
+        assignedTo: { select: { id: true, fullName: true } },
+      },
+    });
+
+    // Create status history with staff ID
+    await prisma.statusHistory.create({
+      data: {
+        reportId,
+        oldStatus,
+        newStatus,
+        changedById: staffId,
+        notes,
+      },
+    });
+
+    // Invalidate cache
+    await redisClient.invalidateReportCache(reportId);
+
+    // Publish status updated event
+    try {
+      await rabbitmqClient.publishReportStatusChanged({
+        reportId: updated.id,
+        referenceNumber: updated.referenceNumber,
+        title: updated.title,
+        category: updated.category,
+        type: updated.type,
+        status: updated.status,
+        priority: updated.priority,
+        oldStatus,
+        newStatus,
+        changedById: staffId,
+      });
+    } catch (error) {
+      logger.error('Failed to publish status updated event', { error, reportId });
+    }
+
+    logger.info('Report status updated', {
+      reportId,
+      oldStatus,
+      newStatus,
+      staffId,
+    });
+
+    return updated as ReportWithDetails;
+  }
+
+  // Assign report to staff member
+  async assignReport(
+    reportId: string,
+    staffId: string,
+    assignedToId: string,
+    notes?: string
+  ): Promise<ReportWithDetails> {
+    const report = await prisma.report.findUnique({
+      where: { id: reportId },
+    });
+
+    if (!report) {
+      throw Errors.notFound('Report');
+    }
+
+    const oldStatus = report.status;
+    const newStatus = ReportStatus.ASSIGNED;
+
+    const updated = await prisma.report.update({
+      where: { id: reportId },
+      data: {
+        assignedToId,
+        status: newStatus,
+      },
+      include: {
+        reporter: { select: { id: true, fullName: true, avatarUrl: true } },
+        department: { select: { id: true, name: true, code: true } },
+        assignedTo: { select: { id: true, fullName: true } },
+      },
+    });
+
+    // Create status history
+    await prisma.statusHistory.create({
+      data: {
+        reportId,
+        oldStatus,
+        newStatus,
+        changedById: staffId,
+        notes: notes || 'Laporan ditugaskan ke petugas',
+      },
+    });
+
+    await redisClient.invalidateReportCache(reportId);
+
+    logger.info('Report assigned', {
+      reportId,
+      assignedToId,
+      staffId,
+    });
+
+    return updated as ReportWithDetails;
+  }
+
+  // Escalate report to superior (Pejabat Utama)
+  async escalateReport(
+    reportId: string,
+    staffId: string,
+    notes?: string
+  ): Promise<ReportWithDetails> {
+    const report = await prisma.report.findUnique({
+      where: { id: reportId },
+    });
+
+    if (!report) {
+      throw Errors.notFound('Report');
+    }
+
+    // Get staff member and their superior
+    const staffMember = await prisma.staffMember.findUnique({
+      where: { userId: staffId },
+      include: { superior: { include: { user: true } } },
+    });
+
+    if (!staffMember) {
+      throw Errors.forbidden('Only staff members can escalate reports');
+    }
+
+    const oldStatus = report.status;
+    const newStatus = ReportStatus.ESCALATED;
+
+    // Update report with escalation info
+    const updated = await prisma.report.update({
+      where: { id: reportId },
+      data: {
+        status: newStatus,
+        escalationLevel: report.escalationLevel + 1,
+        lastEscalatedAt: new Date(),
+        // Reassign to superior if available
+        assignedToId: staffMember.superior?.userId || report.assignedToId,
+      },
+      include: {
+        reporter: { select: { id: true, fullName: true, avatarUrl: true } },
+        department: { select: { id: true, name: true, code: true } },
+        assignedTo: { select: { id: true, fullName: true } },
+      },
+    });
+
+    // Create status history
+    await prisma.statusHistory.create({
+      data: {
+        reportId,
+        oldStatus,
+        newStatus,
+        changedById: staffId,
+        notes: notes || 'Laporan dieskalasi ke Pejabat Utama',
+      },
+    });
+
+    // Create notification for superior if exists
+    if (staffMember.superior) {
+      await prisma.notification.create({
+        data: {
+          userId: staffMember.superior.userId,
+          type: 'REPORT_ESCALATED',
+          title: 'Laporan Dieskalasi',
+          message: `Laporan ${report.referenceNumber} dieskalasi oleh bawahan Anda`,
+          data: { reportId, referenceNumber: report.referenceNumber },
+        },
+      });
+    }
+
+    await redisClient.invalidateReportCache(reportId);
+
+    // Publish escalation event
+    try {
+      await rabbitmqClient.publishReportEscalated({
+        reportId: updated.id,
+        referenceNumber: updated.referenceNumber,
+        title: updated.title,
+        category: updated.category,
+        type: updated.type,
+        status: updated.status,
+        priority: updated.priority,
+        oldStatus,
+        newStatus,
+        changedById: staffId,
+      });
+    } catch (error) {
+      logger.error('Failed to publish report escalated event', { error, reportId });
+    }
+
+    logger.info('Report escalated', {
+      reportId,
+      escalationLevel: updated.escalationLevel,
+      staffId,
+      superiorId: staffMember.superior?.userId,
+    });
+
+    return updated as ReportWithDetails;
+  }
+
+  // Get reports assigned to staff member
+  async getAssignedReports(
+    staffId: string,
+    query: ListReportsQuery
+  ): Promise<{ data: ReportWithDetails[]; meta: { page: number; limit: number; total: number; totalPages: number } }> {
+    return this.listReports({
+      ...query,
+    }, staffId);
+  }
+
+  // Get reports for staff's department
+  async getDepartmentReports(
+    staffId: string,
+    query: ListReportsQuery
+  ): Promise<{ data: ReportWithDetails[]; meta: { page: number; limit: number; total: number; totalPages: number } }> {
+    // Get staff member's department
+    const staffMember = await prisma.staffMember.findUnique({
+      where: { userId: staffId },
+      select: { departmentId: true },
+    });
+
+    if (!staffMember) {
+      throw Errors.forbidden('Staff member not found');
+    }
+
+    return this.listReports({
+      ...query,
+      departmentId: staffMember.departmentId,
+    }, staffId);
+  }
+
+  // Get staff performance metrics (for Pejabat Utama)
+  async getStaffPerformance(
+    superiorId: string,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<{
+    subordinates: Array<{
+      staffId: string;
+      fullName: string;
+      totalAssigned: number;
+      resolved: number;
+      escalated: number;
+      avgResolutionTime: number;
+      statusChanges: Array<{
+        date: string;
+        count: number;
+      }>;
+    }>;
+    summary: {
+      totalReports: number;
+      totalResolved: number;
+      totalEscalated: number;
+      avgResolutionTime: number;
+    };
+  }> {
+    const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Default 30 days
+    const end = endDate || new Date();
+
+    // Get subordinates
+    const subordinates = await prisma.staffMember.findMany({
+      where: { superiorId: await this.getStaffMemberId(superiorId) },
+      include: { user: { select: { id: true, fullName: true } } },
+    });
+
+    const performanceData = await Promise.all(
+      subordinates.map(async (sub) => {
+        // Get reports handled by this staff member
+        const [totalAssigned, resolved, escalated] = await Promise.all([
+          prisma.statusHistory.count({
+            where: {
+              changedById: sub.userId,
+              createdAt: { gte: start, lte: end },
+            },
+          }),
+          prisma.statusHistory.count({
+            where: {
+              changedById: sub.userId,
+              newStatus: ReportStatus.RESOLVED,
+              createdAt: { gte: start, lte: end },
+            },
+          }),
+          prisma.statusHistory.count({
+            where: {
+              changedById: sub.userId,
+              newStatus: ReportStatus.ESCALATED,
+              createdAt: { gte: start, lte: end },
+            },
+          }),
+        ]);
+
+        // Get average resolution time for resolved reports
+        const resolvedReports = await prisma.report.findMany({
+          where: {
+            assignedToId: sub.userId,
+            status: ReportStatus.RESOLVED,
+            resolvedAt: { not: null },
+            createdAt: { gte: start, lte: end },
+          },
+          select: { createdAt: true, resolvedAt: true },
+        });
+
+        const avgResolutionTime = resolvedReports.length > 0
+          ? resolvedReports.reduce((acc, r) => {
+              return acc + (r.resolvedAt!.getTime() - r.createdAt.getTime());
+            }, 0) / resolvedReports.length / (1000 * 60 * 60) // in hours
+          : 0;
+
+        // Get daily status change counts for chart
+        const statusChanges = await prisma.statusHistory.groupBy({
+          by: ['createdAt'],
+          where: {
+            changedById: sub.userId,
+            createdAt: { gte: start, lte: end },
+          },
+          _count: true,
+        });
+
+        // Aggregate by date
+        const changesByDate = new Map<string, number>();
+        statusChanges.forEach((sc) => {
+          const dateKey = sc.createdAt.toISOString().split('T')[0];
+          changesByDate.set(dateKey, (changesByDate.get(dateKey) || 0) + sc._count);
+        });
+
+        return {
+          staffId: sub.userId,
+          fullName: sub.user.fullName,
+          totalAssigned,
+          resolved,
+          escalated,
+          avgResolutionTime: Math.round(avgResolutionTime * 100) / 100,
+          statusChanges: Array.from(changesByDate.entries()).map(([date, count]) => ({
+            date,
+            count,
+          })),
+        };
+      })
+    );
+
+    // Calculate summary
+    const summary = {
+      totalReports: performanceData.reduce((acc, p) => acc + p.totalAssigned, 0),
+      totalResolved: performanceData.reduce((acc, p) => acc + p.resolved, 0),
+      totalEscalated: performanceData.reduce((acc, p) => acc + p.escalated, 0),
+      avgResolutionTime:
+        performanceData.length > 0
+          ? performanceData.reduce((acc, p) => acc + p.avgResolutionTime, 0) / performanceData.length
+          : 0,
+    };
+
+    return { subordinates: performanceData, summary };
+  }
+
+  // Helper to get staff member ID from user ID
+  private async getStaffMemberId(userId: string): Promise<string | undefined> {
+    const staffMember = await prisma.staffMember.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    return staffMember?.id;
+  }
+
+  // Get escalated reports for Pejabat Utama
+  async getEscalatedReports(
+    superiorId: string,
+    query: ListReportsQuery
+  ): Promise<{ data: ReportWithDetails[]; meta: { page: number; limit: number; total: number; totalPages: number } }> {
+    // Get staff member's department
+    const staffMember = await prisma.staffMember.findUnique({
+      where: { userId: superiorId },
+      select: { departmentId: true },
+    });
+
+    if (!staffMember) {
+      throw Errors.forbidden('Staff member not found');
+    }
+
+    return this.listReports({
+      ...query,
+      status: ReportStatus.ESCALATED,
+      departmentId: staffMember.departmentId,
+    }, superiorId);
+  }
 }
 
 export const reportService = new ReportService();

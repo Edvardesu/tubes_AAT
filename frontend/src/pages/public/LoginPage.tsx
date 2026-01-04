@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { Button, Input, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { useAuth } from '@/stores/auth.store';
+import { authService } from '@/services/auth.service';
 
 const loginSchema = z.object({
   email: z.string().email('Email tidak valid'),
@@ -37,9 +38,32 @@ export function LoginPage() {
     setIsLoading(true);
 
     try {
-      const success = await login(data.email, data.password);
-      if (success) {
-        navigate(from, { replace: true });
+      const response = await authService.login({ email: data.email, password: data.password });
+      if (response.success && response.data) {
+        const user = response.data.user;
+
+        // Check user roles
+        const isPejabat = user?.roles?.some((ur: any) =>
+          ['DEPARTMENT_HEAD', 'STAFF_L1', 'STAFF_L2'].includes(ur.role?.name ?? ur.name ?? '')
+        );
+        const isAdminOnly = user?.roles?.some((ur: any) =>
+          ['ADMIN', 'CITY_ADMIN'].includes(ur.role?.name ?? ur.name ?? '')
+        ) && !isPejabat;
+
+        // Call login to update auth state
+        await login(data.email, data.password);
+
+        // Redirect based on role
+        if (isPejabat) {
+          // Pejabat Muda/Utama goes to dashboard
+          navigate('/admin', { replace: true });
+        } else if (isAdminOnly) {
+          // Admin only manages accounts
+          navigate('/admin/staff', { replace: true });
+        } else {
+          // Regular citizen
+          navigate(from, { replace: true });
+        }
       } else {
         setError('Email atau password salah');
       }

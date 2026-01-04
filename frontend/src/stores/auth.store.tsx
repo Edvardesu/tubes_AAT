@@ -137,3 +137,25 @@ export function useIsAdmin(): boolean {
 export function useIsStaff(): boolean {
   return useHasRole(['ADMIN', 'CITY_ADMIN', 'DEPARTMENT_HEAD', 'STAFF_L1', 'STAFF_L2', 'STAFF_L3']);
 }
+
+// Pejabat Muda - can process reports and escalate
+export function useIsPejabatMuda(): boolean {
+  return useHasRole(['STAFF_L1']);
+}
+
+// Pejabat Utama - can monitor performance and handle escalated reports
+export function useIsPejabatUtama(): boolean {
+  return useHasRole(['STAFF_L2', 'DEPARTMENT_HEAD']);
+}
+
+// Get user's staff level for displaying appropriate UI
+export function useStaffLevel(): 'admin' | 'pejabat_utama' | 'pejabat_muda' | 'citizen' {
+  const isAdmin = useHasRole(['ADMIN', 'CITY_ADMIN']);
+  const isPejabatUtama = useHasRole(['STAFF_L2', 'DEPARTMENT_HEAD']);
+  const isPejabatMuda = useHasRole(['STAFF_L1']);
+
+  if (isAdmin) return 'admin';
+  if (isPejabatUtama) return 'pejabat_utama';
+  if (isPejabatMuda) return 'pejabat_muda';
+  return 'citizen';
+}

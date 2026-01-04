@@ -3,3 +3,5 @@ export * from './AdminReportsPage';
 export * from './AdminAnalyticsPage';
 export * from './AdminSettingsPage';
 export * from './AdminStaffPage';
+export * from './AdminPerformancePage';
+export * from './AdminEscalatedPage';

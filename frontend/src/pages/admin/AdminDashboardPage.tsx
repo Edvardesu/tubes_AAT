@@ -7,36 +7,74 @@ import {
   CheckCircle,
   AlertTriangle,
   XCircle,
+  ArrowUpRight,
+  Building2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/components/ui';
 import { AdminNav } from '@/components/layout';
 import { analyticsService } from '@/services/analytics.service';
 import { reportService } from '@/services/report.service';
+import { useIsPejabatMuda, useIsPejabatUtama } from '@/stores/auth.store';
 import { getStatusLabel, getStatusColor, formatRelativeTime } from '@/lib/utils';
 
 export function AdminDashboardPage() {
+  const isPejabatMuda = useIsPejabatMuda();
+  const isPejabatUtama = useIsPejabatUtama();
+  const isStaff = isPejabatMuda || isPejabatUtama;
+
   const { data: statsData } = useQuery({
     queryKey: ['dashboardStats'],
     queryFn: () => analyticsService.getDashboardStats(),
   });
 
+  // Use department reports for staff
   const { data: reportsData } = useQuery({
-    queryKey: ['recentReportsAdmin'],
-    queryFn: () => reportService.getReports({ limit: 10 }),
+    queryKey: ['recentReportsAdmin', isStaff],
+    queryFn: () =>
+      isStaff
+        ? reportService.getDepartmentReports({ limit: 10 })
+        : reportService.getReports({ limit: 10 }),
+  });
+
+  // Get escalated reports count for Pejabat Utama
+  const { data: escalatedData } = useQuery({
+    queryKey: ['escalatedReportsCount'],
+    queryFn: () => reportService.getEscalatedReports({ limit: 1 }),
+    enabled: isPejabatUtama,
   });
 
   const stats = statsData?.data;
-  const reports = reportsData?.data?.reports || [];
+  const reports = reportsData?.data || [];
+  const escalatedCount = escalatedData?.meta?.total || 0;
+
+  // Determine title based on role
+  const getDashboardTitle = () => {
+    if (isPejabatUtama) return 'Dashboard Pejabat Utama';
+    if (isPejabatMuda) return 'Dashboard Pejabat Muda';
+    return 'Dashboard Admin';
+  };
+
+  const getDashboardSubtitle = () => {
+    if (isPejabatUtama) return 'Pantau kinerja tim dan laporan eskalasi';
+    if (isPejabatMuda) return 'Kelola dan proses laporan departemen Anda';
+    return 'Pantau dan kelola laporan warga';
+  };
 
   return (
     <>
       <AdminNav />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard Admin</h1>
-          <p className="text-gray-600">
-            Pantau dan kelola laporan warga
-          </p>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-3xl font-bold text-gray-900">{getDashboardTitle()}</h1>
+            {isStaff && (
+              <Badge className="bg-primary-100 text-primary-700">
+                <Building2 className="w-3 h-3 mr-1" />
+                {isPejabatUtama ? 'Pejabat Utama' : 'Pejabat Muda'}
+              </Badge>
+            )}
+          </div>
+          <p className="text-gray-600">{getDashboardSubtitle()}</p>
         </div>
 
       {/* Stats Grid */}
@@ -106,6 +144,35 @@ export function AdminDashboardPage() {
         </Card>
       </div>
 
+      {/* Escalation Alert for Pejabat Utama */}
+      {isPejabatUtama && escalatedCount > 0 && (
+        <Card className="mb-8 bg-orange-50 border-orange-200">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <ArrowUpRight className="w-5 h-5 text-orange-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-orange-800">
+                    {escalatedCount} Laporan Dieskalasi
+                  </p>
+                  <p className="text-sm text-orange-700">
+                    Laporan yang membutuhkan perhatian Anda dari Pejabat Muda
+                  </p>
+                </div>
+              </div>
+              <Link
+                to="/admin/escalated"
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
+              >
+                Lihat Semua
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Additional Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
         <Card>
@@ -127,11 +194,11 @@ export function AdminDashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Dieskalasi</p>
-                <p className="text-2xl font-bold text-red-600">
-                  {stats?.escalatedReports || 0}
+                <p className="text-2xl font-bold text-orange-600">
+                  {isPejabatUtama ? escalatedCount : (stats?.escalatedReports || 0)}
                 </p>
               </div>
-              <XCircle className="w-8 h-8 text-red-500" />
+              <ArrowUpRight className="w-8 h-8 text-orange-500" />
             </div>
           </CardContent>
         </Card>

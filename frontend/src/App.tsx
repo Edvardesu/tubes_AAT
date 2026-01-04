@@ -11,7 +11,7 @@ import { HomePage, LoginPage, RegisterPage, TrackReportPage, PublicReportsPage }
 import { DashboardPage, MyReportsPage, CreateReportPage, NotificationsPage } from '@/pages/citizen';
 
 // Admin Pages
-import { AdminDashboardPage, AdminReportsPage, AdminAnalyticsPage, AdminSettingsPage, AdminStaffPage } from '@/pages/admin';
+import { AdminDashboardPage, AdminReportsPage, AdminAnalyticsPage, AdminSettingsPage, AdminStaffPage, AdminPerformancePage, AdminEscalatedPage } from '@/pages/admin';
 
 // Shared Pages
 import { ReportDetailPage } from '@/pages/shared';
@@ -44,7 +44,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Admin Route Component
+// Admin Route Component - for any admin/staff user
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading } = useAuth();
 
@@ -60,12 +60,66 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  const isAdmin = user?.roles?.some((ur) =>
-    ['ADMIN', 'CITY_ADMIN', 'DEPARTMENT_HEAD', 'STAFF_L1', 'STAFF_L2', 'STAFF_L3'].includes(ur.role.name)
+  const isAdmin = user?.role === 'ADMIN' || user?.roles?.some((ur) =>
+    ['ADMIN', 'CITY_ADMIN', 'DEPARTMENT_HEAD', 'STAFF_L1', 'STAFF_L2', 'STAFF_L3'].includes(ur.role?.name ?? ur.name ?? '')
   );
 
   if (!isAdmin) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+// Pejabat Route - for Pejabat Muda and Pejabat Utama only (not pure admin)
+function PejabatRoute({ children }: { children: React.ReactNode }) {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const isPejabat = user?.roles?.some((ur) =>
+    ['DEPARTMENT_HEAD', 'STAFF_L1', 'STAFF_L2'].includes(ur.role?.name ?? ur.name ?? '')
+  );
+
+  if (!isPejabat) {
+    return <Navigate to="/admin/staff" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+// Pejabat Utama Route - for Pejabat Utama only
+function PejabatUtamaRoute({ children }: { children: React.ReactNode }) {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const isPejabatUtama = user?.roles?.some((ur) =>
+    ['DEPARTMENT_HEAD', 'STAFF_L2'].includes(ur.role?.name ?? ur.name ?? '')
+  );
+
+  if (!isPejabatUtama) {
+    return <Navigate to="/admin" replace />;
   }
 
   return <>{children}</>;
@@ -126,43 +180,66 @@ function AppRoutes() {
         />
 
         {/* Admin Routes */}
+        {/* Dashboard - for Pejabat only, Admin redirects to /admin/staff */}
         <Route
           path="/admin"
           element={
-            <AdminRoute>
+            <PejabatRoute>
               <AdminDashboardPage />
-            </AdminRoute>
+            </PejabatRoute>
           }
         />
+        {/* Department Reports - for Pejabat only */}
         <Route
           path="/admin/reports"
           element={
-            <AdminRoute>
+            <PejabatRoute>
               <AdminReportsPage />
-            </AdminRoute>
+            </PejabatRoute>
           }
         />
+        {/* Escalated Reports - for Pejabat Utama only */}
+        <Route
+          path="/admin/escalated"
+          element={
+            <PejabatUtamaRoute>
+              <AdminEscalatedPage />
+            </PejabatUtamaRoute>
+          }
+        />
+        {/* Performance - for Pejabat Utama only */}
+        <Route
+          path="/admin/performance"
+          element={
+            <PejabatUtamaRoute>
+              <AdminPerformancePage />
+            </PejabatUtamaRoute>
+          }
+        />
+        {/* Analytics - for Pejabat Utama only */}
         <Route
           path="/admin/analytics"
           element={
-            <AdminRoute>
+            <PejabatUtamaRoute>
               <AdminAnalyticsPage />
-            </AdminRoute>
+            </PejabatUtamaRoute>
           }
         />
-        <Route
-          path="/admin/settings"
-          element={
-            <AdminRoute>
-              <AdminSettingsPage />
-            </AdminRoute>
-          }
-        />
+        {/* Staff Management - for Admin only */}
         <Route
           path="/admin/staff"
           element={
             <AdminRoute>
               <AdminStaffPage />
+            </AdminRoute>
+          }
+        />
+        {/* Settings - for all admin/staff */}
+        <Route
+          path="/admin/settings"
+          element={
+            <AdminRoute>
+              <AdminSettingsPage />
             </AdminRoute>
           }
         />

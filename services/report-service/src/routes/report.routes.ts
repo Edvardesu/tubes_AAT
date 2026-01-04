@@ -15,6 +15,13 @@ import {
 
 const router = Router();
 
+// GET /reports/my/stats - Get current user's report statistics (must be before /my to avoid conflict)
+router.get(
+  '/my/stats',
+  authenticate,
+  reportController.getMyReportStats
+);
+
 // GET /reports/my - Get current user's reports (must be before /:id to avoid conflict)
 router.get(
   '/my',
@@ -28,7 +35,30 @@ router.get(
   '/public',
   optionalAuth,
   validate(listReportsValidation),
-  reportController.listReports
+  reportController.listPublicReports
+);
+
+// GET /reports/department - Get reports for staff's department
+router.get(
+  '/department',
+  authenticate,
+  validate(listReportsValidation),
+  reportController.getDepartmentReports
+);
+
+// GET /reports/escalated - Get escalated reports (for Pejabat Utama)
+router.get(
+  '/escalated',
+  authenticate,
+  validate(listReportsValidation),
+  reportController.getEscalatedReports
+);
+
+// GET /reports/staff/performance - Get staff performance metrics (for Pejabat Utama)
+router.get(
+  '/staff/performance',
+  authenticate,
+  reportController.getStaffPerformance
 );
 
 // GET /reports - List reports (optional auth for public access)
@@ -94,6 +124,30 @@ router.get(
   '/:id/media',
   validate(reportIdValidation),
   reportController.getReportMedia
+);
+
+// PATCH /reports/:id/status - Update report status (for staff)
+router.patch(
+  '/:id/status',
+  authenticate,
+  validate(reportIdValidation),
+  reportController.updateReportStatus
+);
+
+// POST /reports/:id/assign - Assign report to staff (for admin/supervisor)
+router.post(
+  '/:id/assign',
+  authenticate,
+  validate(reportIdValidation),
+  reportController.assignReport
+);
+
+// POST /reports/:id/escalate - Escalate report to superior (for Pejabat Muda)
+router.post(
+  '/:id/escalate',
+  authenticate,
+  validate(reportIdValidation),
+  reportController.escalateReport
 );
 
 export default router;

@@ -82,8 +82,8 @@ export function PublicReportsPage() {
       }),
   });
 
-  const reports = data?.data?.reports || [];
-  const meta = data?.data?.meta;
+  const reports = data?.data || [];
+  const meta = data?.meta;
 
   return (
     <div className="pt-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

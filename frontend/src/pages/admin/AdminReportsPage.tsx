@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Filter, ChevronRight, Download } from 'lucide-react';
+import { Search, Filter, ChevronRight, Download, Building2 } from 'lucide-react';
 import {
   Button,
   Input,
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui';
 import { AdminNav } from '@/components/layout';
 import { reportService } from '@/services/report.service';
+import { useIsPejabatMuda, useIsPejabatUtama } from '@/stores/auth.store';
 import {
   getStatusLabel,
   getStatusColor,
@@ -52,6 +53,10 @@ const SORT_OPTIONS = [
 ];
 
 export function AdminReportsPage() {
+  const isPejabatMuda = useIsPejabatMuda();
+  const isPejabatUtama = useIsPejabatUtama();
+  const isStaff = isPejabatMuda || isPejabatUtama;
+
   const [filters, setFilters] = useState({
     status: '' as ReportStatus | '',
     category: '' as ReportCategory | '',
@@ -62,21 +67,30 @@ export function AdminReportsPage() {
 
   const [searchInput, setSearchInput] = useState('');
 
+  // Use department reports for staff, all reports for others
   const { data, isLoading } = useQuery({
-    queryKey: ['adminReports', filters],
+    queryKey: ['adminReports', filters, isStaff],
     queryFn: () =>
-      reportService.getReports({
-        status: filters.status || undefined,
-        category: filters.category || undefined,
-        search: filters.search || undefined,
-        sort: filters.sort,
-        page: filters.page,
-        limit: 20,
-      }),
+      isStaff
+        ? reportService.getDepartmentReports({
+            status: filters.status || undefined,
+            category: filters.category || undefined,
+            sort: filters.sort,
+            page: filters.page,
+            limit: 20,
+          })
+        : reportService.getReports({
+            status: filters.status || undefined,
+            category: filters.category || undefined,
+            search: filters.search || undefined,
+            sort: filters.sort,
+            page: filters.page,
+            limit: 20,
+          }),
   });
 
-  const reports = data?.data?.reports || [];
-  const meta = data?.data?.meta;
+  const reports = data?.data || [];
+  const meta = data?.meta;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,19 +119,31 @@ export function AdminReportsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Manajemen Laporan</h1>
-          <p className="text-gray-600">
-            Kelola dan proses laporan dari warga
-          </p>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-bold text-gray-900">
+                {isStaff ? 'Laporan Departemen' : 'Manajemen Laporan'}
+              </h1>
+              {isStaff && (
+                <Badge className="bg-primary-100 text-primary-700">
+                  <Building2 className="w-3 h-3 mr-1" />
+                  Bidang Anda
+                </Badge>
+              )}
+            </div>
+            <p className="text-gray-600">
+              {isStaff
+                ? 'Laporan yang masuk ke bidang/departemen Anda'
+                : 'Kelola dan proses laporan dari warga'}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={handleExport}
+            leftIcon={<Download className="w-4 h-4" />}
+          >
+            Export
+          </Button>
         </div>
-        <Button
-          variant="outline"
-          onClick={handleExport}
-          leftIcon={<Download className="w-4 h-4" />}
-        >
-          Export
-        </Button>
-      </div>
 
       {/* Filters */}
       <Card className="mb-6">

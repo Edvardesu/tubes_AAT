@@ -1,31 +1,31 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { Plus, FileText, Clock, MapPin, ChevronRight } from 'lucide-react';
-import { Button, Select, Card, CardContent, Badge } from '@/components/ui';
-import { reportService } from '@/services/report.service';
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { Plus, FileText, Clock, MapPin, ChevronRight } from "lucide-react";
+import { Button, Select, Card, CardContent, Badge } from "@/components/ui";
+import { reportService } from "@/services/report.service";
 import {
   getStatusLabel,
   getStatusColor,
   getCategoryLabel,
   formatRelativeTime,
-} from '@/lib/utils';
-import type { ReportStatus } from '@/types';
+} from "@/lib/utils";
+import type { ReportStatus } from "@/types";
 
 const STATUS_OPTIONS = [
-  { value: '', label: 'Semua Status' },
-  { value: 'PENDING', label: 'Menunggu' },
-  { value: 'IN_PROGRESS', label: 'Diproses' },
-  { value: 'RESOLVED', label: 'Selesai' },
-  { value: 'REJECTED', label: 'Ditolak' },
+  { value: "", label: "Semua Status" },
+  { value: "PENDING", label: "Menunggu" },
+  { value: "IN_PROGRESS", label: "Diproses" },
+  { value: "RESOLVED", label: "Selesai" },
+  { value: "REJECTED", label: "Ditolak" },
 ];
 
 export function MyReportsPage() {
-  const [status, setStatus] = useState<ReportStatus | ''>('');
+  const [status, setStatus] = useState<ReportStatus | "">("");
   const [page, setPage] = useState(1);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['myReports', { status, page }],
+    queryKey: ["myReports", { status, page }],
     queryFn: () =>
       reportService.getMyReports({
         status: status || undefined,
@@ -34,22 +34,22 @@ export function MyReportsPage() {
       }),
   });
 
-  const reports = data?.data?.reports || [];
-  const meta = data?.data?.meta;
+  const reports = data?.data || [];
+  const meta = data?.meta;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center justify-between mb-8 mt-16">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Laporan Saya</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Laporan Saya
+          </h1>
           <p className="text-gray-600">
             Lihat dan kelola semua laporan yang Anda buat
           </p>
         </div>
         <Link to="/create-report">
-          <Button leftIcon={<Plus className="w-4 h-4" />}>
-            Buat Laporan
-          </Button>
+          <Button leftIcon={<Plus className="w-4 h-4" />}>Buat Laporan</Button>
         </Link>
       </div>
 
@@ -57,7 +57,7 @@ export function MyReportsPage() {
         <Select
           value={status}
           onChange={(e) => {
-            setStatus(e.target.value as ReportStatus | '');
+            setStatus(e.target.value as ReportStatus | "");
             setPage(1);
           }}
           options={STATUS_OPTIONS}
@@ -86,8 +86,8 @@ export function MyReportsPage() {
             </h3>
             <p className="text-gray-600 mb-6">
               {status
-                ? 'Tidak ada laporan dengan status ini'
-                : 'Anda belum membuat laporan apapun'}
+                ? "Tidak ada laporan dengan status ini"
+                : "Anda belum membuat laporan apapun"}
             </p>
             <Link to="/create-report">
               <Button leftIcon={<Plus className="w-4 h-4" />}>
@@ -101,7 +101,7 @@ export function MyReportsPage() {
           <div className="space-y-4">
             {reports.map((report) => (
               <Link key={report.id} to={`/reports/${report.id}`}>
-                <Card className="hover:shadow-md transition-shadow">
+                <Card className="hover:shadow-md transition-shadow mt-6">
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -112,7 +112,10 @@ export function MyReportsPage() {
                           <Badge variant="outline" size="sm">
                             {getCategoryLabel(report.category)}
                           </Badge>
-                          <Badge className={getStatusColor(report.status)} size="sm">
+                          <Badge
+                            className={getStatusColor(report.status)}
+                            size="sm"
+                          >
                             {getStatusLabel(report.status)}
                           </Badge>
                         </div>

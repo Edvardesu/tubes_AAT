@@ -10,8 +10,9 @@ import {
   FileText,
   LayoutDashboard,
   ChevronDown,
+  Users,
 } from 'lucide-react';
-import { useAuth, useIsStaff } from '@/stores/auth.store';
+import { useAuth, useIsStaff, useIsPejabatMuda, useIsPejabatUtama, useIsAdmin } from '@/stores/auth.store';
 import { useSocket } from '@/stores/socket.store';
 import { Button } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,11 @@ export function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
   const { unreadCount } = useSocket();
   const isStaff = useIsStaff();
+  const isPejabatMuda = useIsPejabatMuda();
+  const isPejabatUtama = useIsPejabatUtama();
+  const isAdmin = useIsAdmin();
+  const isPejabat = isPejabatMuda || isPejabatUtama;
+  const isAdminOnly = isAdmin && !isPejabat;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -111,18 +117,20 @@ export function Navbar() {
           <div className="flex items-center space-x-3">
             {isAuthenticated ? (
               <>
-                <Link to="/create-report" className="hidden sm:block">
-                  <Button
-                    size="sm"
-                    leftIcon={<FileText className="w-4 h-4" />}
-                    className={cn(
-                      'transition-all duration-200',
-                      isTransparent && 'bg-white text-primary-700 hover:bg-white/90'
-                    )}
-                  >
-                    Buat Laporan
-                  </Button>
-                </Link>
+                {!isStaff && (
+                  <Link to="/create-report" className="hidden sm:block">
+                    <Button
+                      size="sm"
+                      leftIcon={<FileText className="w-4 h-4" />}
+                      className={cn(
+                        'transition-all duration-200',
+                        isTransparent && 'bg-white text-primary-700 hover:bg-white/90'
+                      )}
+                    >
+                      Buat Laporan
+                    </Button>
+                  </Link>
+                )}
 
                 <Link
                   to="/notifications"
@@ -187,33 +195,47 @@ export function Navbar() {
                         </div>
 
                         <div className="py-1">
-                          <Link
-                            to="/dashboard"
-                            className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-primary-50 hover:text-primary-700 transition-colors"
-                            onClick={() => setIsUserMenuOpen(false)}
-                          >
-                            <LayoutDashboard className="w-4 h-4 mr-3" />
-                            Dashboard
-                          </Link>
-
-                          <Link
-                            to="/my-reports"
-                            className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-primary-50 hover:text-primary-700 transition-colors"
-                            onClick={() => setIsUserMenuOpen(false)}
-                          >
-                            <FileText className="w-4 h-4 mr-3" />
-                            Laporan Saya
-                          </Link>
-
-                          {isStaff && (
+                          {isPejabat ? (
+                            // Pejabat Muda / Pejabat Utama
                             <Link
                               to="/admin"
                               className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-primary-50 hover:text-primary-700 transition-colors"
                               onClick={() => setIsUserMenuOpen(false)}
                             >
-                              <Settings className="w-4 h-4 mr-3" />
-                              Admin Panel
+                              <LayoutDashboard className="w-4 h-4 mr-3" />
+                              {isPejabatUtama ? 'Panel Pejabat Utama' : 'Panel Pejabat Muda'}
                             </Link>
+                          ) : isAdminOnly ? (
+                            // Admin only (manages accounts)
+                            <Link
+                              to="/admin/staff"
+                              className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-primary-50 hover:text-primary-700 transition-colors"
+                              onClick={() => setIsUserMenuOpen(false)}
+                            >
+                              <Users className="w-4 h-4 mr-3" />
+                              Kelola Akun
+                            </Link>
+                          ) : (
+                            // Regular citizen
+                            <>
+                              <Link
+                                to="/dashboard"
+                                className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-primary-50 hover:text-primary-700 transition-colors"
+                                onClick={() => setIsUserMenuOpen(false)}
+                              >
+                                <LayoutDashboard className="w-4 h-4 mr-3" />
+                                Dashboard
+                              </Link>
+
+                              <Link
+                                to="/my-reports"
+                                className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-primary-50 hover:text-primary-700 transition-colors"
+                                onClick={() => setIsUserMenuOpen(false)}
+                              >
+                                <FileText className="w-4 h-4 mr-3" />
+                                Laporan Saya
+                              </Link>
+                            </>
                           )}
 
                           <Link
@@ -313,7 +335,7 @@ export function Navbar() {
           >
             Lacak Laporan
           </Link>
-          {isAuthenticated && (
+          {isAuthenticated && !isStaff && (
             <Link
               to="/create-report"
               className="block px-4 py-2.5 text-base font-medium text-primary-600 bg-primary-50 rounded-lg transition-colors"

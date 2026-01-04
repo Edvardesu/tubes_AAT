@@ -165,6 +165,7 @@ const createProxyHandler = (route: ServiceRoute) => {
     }
 
     // Prepare request config for non-multipart requests
+    // Note: Don't include params here since targetUrl already contains query string from req.originalUrl
     const requestConfig: AxiosRequestConfig = {
       method: req.method as any,
       url: targetUrl,
@@ -175,7 +176,6 @@ const createProxyHandler = (route: ServiceRoute) => {
         'x-forwarded-for': req.ip,
       },
       data: req.body,
-      params: req.query,
       timeout: config.circuitBreaker.timeout,
       validateStatus: () => true, // Don't throw on any status
     };

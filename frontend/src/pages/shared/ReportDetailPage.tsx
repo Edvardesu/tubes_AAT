@@ -14,6 +14,7 @@ import {
   Image as ImageIcon,
   ThumbsUp,
   Eye,
+  ArrowUpRight,
 } from 'lucide-react';
 import {
   Button,
@@ -26,7 +27,7 @@ import {
   Select,
 } from '@/components/ui';
 import { reportService } from '@/services/report.service';
-import { useAuth } from '@/stores/auth.store';
+import { useAuth, useIsPejabatMuda, useIsPejabatUtama } from '@/stores/auth.store';
 import {
   getStatusLabel,
   getStatusColor,
@@ -79,10 +80,14 @@ export function ReportDetailPage() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const isPejabatMuda = useIsPejabatMuda();
+  const isPejabatUtama = useIsPejabatUtama();
 
   const [comment, setComment] = useState('');
   const [newStatus, setNewStatus] = useState<ReportStatus | ''>('');
   const [statusNote, setStatusNote] = useState('');
+  const [escalateNote, setEscalateNote] = useState('');
+  const [showEscalateForm, setShowEscalateForm] = useState(false);
 
   const isAdmin = user?.role === 'ADMIN' || user?.roles?.some((ur) =>
     ['ADMIN', 'CITY_ADMIN', 'DEPARTMENT_HEAD', 'STAFF_L1', 'STAFF_L2', 'STAFF_L3'].includes(ur.role?.name ?? ur.name ?? '')
@@ -133,6 +138,15 @@ export function ReportDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['report', id] });
       setNewStatus('');
       setStatusNote('');
+    },
+  });
+
+  const escalateMutation = useMutation({
+    mutationFn: (note?: string) => reportService.escalateReport(id!, note),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['report', id] });
+      setEscalateNote('');
+      setShowEscalateForm(false);
     },
   });
 
@@ -474,6 +488,88 @@ export function ReportDetailPage() {
                       </div>
                     </>
                   )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Escalation Option - For Pejabat Muda */}
+          {isPejabatMuda && report.status !== 'ESCALATED' && report.status !== 'RESOLVED' && report.status !== 'REJECTED' && report.status !== 'CLOSED' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ArrowUpRight className="w-5 h-5 text-orange-500" />
+                  Eskalasi Laporan
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!showEscalateForm ? (
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-600">
+                      Tidak dapat menangani laporan ini? Eskalasi ke Pejabat Utama untuk bantuan lebih lanjut.
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowEscalateForm(true)}
+                      leftIcon={<ArrowUpRight className="w-4 h-4" />}
+                      className="w-full border-orange-300 text-orange-600 hover:bg-orange-50"
+                    >
+                      Eskalasi ke Pejabat Utama
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <Textarea
+                      value={escalateNote}
+                      onChange={(e) => setEscalateNote(e.target.value)}
+                      placeholder="Alasan eskalasi (wajib diisi)"
+                      rows={3}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setShowEscalateForm(false);
+                          setEscalateNote('');
+                        }}
+                        className="flex-1"
+                      >
+                        Batal
+                      </Button>
+                      <Button
+                        onClick={() => escalateMutation.mutate(escalateNote)}
+                        isLoading={escalateMutation.isPending}
+                        disabled={!escalateNote.trim()}
+                        leftIcon={<ArrowUpRight className="w-4 h-4" />}
+                        className="flex-1 bg-orange-500 hover:bg-orange-600"
+                      >
+                        Konfirmasi Eskalasi
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Escalated Report Info - For Pejabat Utama */}
+          {isPejabatUtama && report.status === 'ESCALATED' && (
+            <Card className="border-orange-200 bg-orange-50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-orange-700">
+                  <AlertTriangle className="w-5 h-5" />
+                  Laporan Dieskalasi
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-orange-700">
+                  Laporan ini telah dieskalasi dari Pejabat Muda. Silakan tinjau dan ambil tindakan yang diperlukan.
+                </p>
+                <div className="mt-3 text-sm">
+                  <span className="text-gray-600">Level Eskalasi: </span>
+                  <Badge className="bg-orange-100 text-orange-700">
+                    Level {report.escalationLevel}
+                  </Badge>
                 </div>
               </CardContent>
             </Card>

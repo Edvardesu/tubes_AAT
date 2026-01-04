@@ -25,8 +25,13 @@ export function DashboardPage() {
   const { unreadCount } = useSocket();
 
   const { data: reportsData } = useQuery({
-    queryKey: ['myReportsStats'],
+    queryKey: ['myRecentReports'],
     queryFn: () => reportService.getMyReports({ limit: 5 }),
+  });
+
+  const { data: statsData } = useQuery({
+    queryKey: ['myReportStats'],
+    queryFn: () => reportService.getMyReportStats(),
   });
 
   const { data: notificationsData } = useQuery({
@@ -34,17 +39,14 @@ export function DashboardPage() {
     queryFn: () => notificationService.getNotifications({ page: 1, limit: 5 }),
   });
 
-  const reports = reportsData?.data?.reports || [];
-  const notifications = notificationsData?.data?.notifications || [];
-  const totalReports = reportsData?.data?.meta?.total || 0;
+  const reports = reportsData?.data || [];
+  const notifications = notificationsData?.data || [];
+  const stats = statsData?.data;
 
-  const pendingCount = reports.filter((r) =>
-    ['PENDING', 'RECEIVED', 'IN_REVIEW'].includes(r.status)
-  ).length;
-  const inProgressCount = reports.filter((r) =>
-    ['ASSIGNED', 'IN_PROGRESS'].includes(r.status)
-  ).length;
-  const resolvedCount = reports.filter((r) => r.status === 'RESOLVED').length;
+  const totalReports = stats?.total || 0;
+  const pendingCount = stats?.pending || 0;
+  const inProgressCount = stats?.inProgress || 0;
+  const resolvedCount = stats?.resolved || 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
