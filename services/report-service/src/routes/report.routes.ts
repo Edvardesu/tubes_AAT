@@ -15,6 +15,22 @@ import {
 
 const router = Router();
 
+// GET /reports/my - Get current user's reports (must be before /:id to avoid conflict)
+router.get(
+  '/my',
+  authenticate,
+  validate(listReportsValidation),
+  reportController.getMyReports
+);
+
+// GET /reports/public - Get public reports
+router.get(
+  '/public',
+  optionalAuth,
+  validate(listReportsValidation),
+  reportController.listReports
+);
+
 // GET /reports - List reports (optional auth for public access)
 router.get(
   '/',
