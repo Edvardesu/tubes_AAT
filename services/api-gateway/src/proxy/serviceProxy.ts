@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction, Router } from 'express';
 import { AxiosRequestConfig, AxiosError } from 'axios';
 import { v4 as uuidv4 } from 'uuid';
+import http from 'http';
 import { config } from '../config';
 import { logger, Errors } from '../utils';
 import { getCircuitBreaker } from './circuitBreaker';
@@ -56,6 +57,81 @@ const serviceRoutes: ServiceRoute[] = [
   },
 ];
 
+// Handle multipart requests by piping raw stream
+const handleMultipartProxy = (
+  req: Request,
+  res: Response,
+  route: ServiceRoute,
+  targetPath: string,
+  requestId: string,
+  startTime: number,
+  next: NextFunction
+) => {
+  const targetUrl = new URL(route.target);
+
+  const proxyReq = http.request(
+    {
+      hostname: targetUrl.hostname,
+      port: targetUrl.port || 80,
+      path: targetPath,
+      method: req.method,
+      headers: {
+        ...req.headers,
+        host: targetUrl.host,
+        'x-request-id': requestId,
+        'x-forwarded-for': req.ip || '',
+      },
+    },
+    (proxyRes) => {
+      const duration = Date.now() - startTime;
+
+      logger.info('Proxy request completed', {
+        requestId,
+        method: req.method,
+        path: req.originalUrl,
+        target: route.serviceName,
+        status: proxyRes.statusCode,
+        duration: `${duration}ms`,
+      });
+
+      // Forward response headers
+      for (const [key, value] of Object.entries(proxyRes.headers)) {
+        if (value && !['transfer-encoding', 'connection'].includes(key.toLowerCase())) {
+          res.setHeader(key, value as string | string[]);
+        }
+      }
+
+      res.setHeader('x-request-id', requestId);
+      res.status(proxyRes.statusCode || 500);
+      proxyRes.pipe(res);
+    }
+  );
+
+  proxyReq.on('error', (error: any) => {
+    const duration = Date.now() - startTime;
+
+    if (error.code === 'ECONNREFUSED') {
+      logger.error('Service unavailable', {
+        requestId,
+        serviceName: route.serviceName,
+        error: error.message,
+      });
+      return next(Errors.serviceUnavailable(route.serviceName));
+    }
+
+    logger.error('Proxy error', {
+      requestId,
+      serviceName: route.serviceName,
+      error: error.message,
+      duration: `${duration}ms`,
+    });
+    next(Errors.badGateway(error.message));
+  });
+
+  // Pipe the incoming request to the proxy request
+  req.pipe(proxyReq);
+};
+
 // Create proxy handler for a service
 const createProxyHandler = (route: ServiceRoute) => {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -74,7 +150,21 @@ const createProxyHandler = (route: ServiceRoute) => {
 
     const targetUrl = `${route.target}${targetPath}`;
 
-    // Prepare request config
+    logger.debug('Proxying request', {
+      requestId,
+      method: req.method,
+      path: req.originalUrl,
+      target: targetUrl,
+      serviceName: route.serviceName,
+    });
+
+    // Check if this is a multipart request - use raw stream proxy
+    const contentType = req.headers['content-type'] || '';
+    if (contentType.includes('multipart/form-data')) {
+      return handleMultipartProxy(req, res, route, targetPath, requestId, startTime, next);
+    }
+
+    // Prepare request config for non-multipart requests
     const requestConfig: AxiosRequestConfig = {
       method: req.method as any,
       url: targetUrl,
@@ -95,14 +185,6 @@ const createProxyHandler = (route: ServiceRoute) => {
     delete requestConfig.headers!['keep-alive'];
     delete requestConfig.headers!['transfer-encoding'];
     delete requestConfig.headers!['content-length'];
-
-    logger.debug('Proxying request', {
-      requestId,
-      method: req.method,
-      path: req.originalUrl,
-      target: targetUrl,
-      serviceName: route.serviceName,
-    });
 
     try {
       const circuitBreaker = getCircuitBreaker(route.serviceName);

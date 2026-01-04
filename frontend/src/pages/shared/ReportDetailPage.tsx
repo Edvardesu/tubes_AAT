@@ -85,7 +85,7 @@ export function ReportDetailPage() {
   const [statusNote, setStatusNote] = useState('');
 
   const isAdmin = user?.role === 'ADMIN' || user?.roles?.some((ur) =>
-    ['ADMIN', 'CITY_ADMIN', 'DEPARTMENT_HEAD', 'STAFF_L1', 'STAFF_L2', 'STAFF_L3'].includes(ur.role.name)
+    ['ADMIN', 'CITY_ADMIN', 'DEPARTMENT_HEAD', 'STAFF_L1', 'STAFF_L2', 'STAFF_L3'].includes(ur.role?.name ?? ur.name ?? '')
   );
   const justCreated = location.state?.justCreated;
   const referenceNumber = location.state?.referenceNumber;
@@ -141,7 +141,7 @@ export function ReportDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-16">
         <div className="animate-pulse">
           <div className="h-8 bg-gray-200 rounded w-1/4 mb-4" />
           <div className="h-6 bg-gray-200 rounded w-3/4 mb-8" />
@@ -156,7 +156,7 @@ export function ReportDetailPage() {
 
   if (!report) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-16">
         <Card>
           <CardContent className="p-12 text-center">
             <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
@@ -174,7 +174,7 @@ export function ReportDetailPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-16">
       {/* Success Banner */}
       {justCreated && (
         <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">

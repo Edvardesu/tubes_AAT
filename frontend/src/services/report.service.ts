@@ -93,11 +93,8 @@ export const reportService = {
       });
     }
 
-    const response = await api.post<ApiResponse<Report>>('/reports', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // Don't set Content-Type header manually - axios will set it automatically with correct boundary
+    const response = await api.post<ApiResponse<Report>>('/reports', formData);
     return response.data;
   },
 

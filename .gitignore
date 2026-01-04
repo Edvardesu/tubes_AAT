@@ -72,3 +72,7 @@ minio-data/
 *.pid
 *.seed
 *.pid.lock
+
+# Documentation and screenshots (local only)
+docs/
+images/
