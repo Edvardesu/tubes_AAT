@@ -76,6 +76,28 @@ router.post('/read-all', async (req: Request, res: Response, next: NextFunction)
   }
 });
 
+// DELETE /notifications/:id - Delete a notification
+router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+        success: false,
+        error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+      });
+    }
+
+    await notificationService.deleteNotification(req.params.id, userId);
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: 'Notification deleted',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ==================== PREFERENCES ====================
 
 // GET /notifications/preferences - Get user notification preferences

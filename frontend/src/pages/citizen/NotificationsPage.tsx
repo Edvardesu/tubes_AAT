@@ -43,8 +43,9 @@ export function NotificationsPage() {
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const getNotificationLink = (notification: typeof notifications[0]) => {
-    if (notification.reportId) {
-      return `/reports/${notification.reportId}`;
+    const reportId = notification.data?.reportId;
+    if (reportId) {
+      return `/reports/${reportId}`;
     }
     return '#';
   };

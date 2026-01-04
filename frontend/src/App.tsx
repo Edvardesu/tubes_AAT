@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@/stores/auth.store';
 import { SocketProvider } from '@/stores/socket.store';
 import { MainLayout } from '@/components/layout';
+import { ToastProvider } from '@/components/ui';
 
 // Public Pages
 import { HomePage, LoginPage, RegisterPage, TrackReportPage, PublicReportsPage } from '@/pages/public';
@@ -271,7 +272,9 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <SocketProvider>
-            <AppRoutes />
+            <ToastProvider>
+              <AppRoutes />
+            </ToastProvider>
           </SocketProvider>
         </AuthProvider>
       </BrowserRouter>

@@ -146,20 +146,20 @@ class RedisClient {
   // Get unread notification count
   async getUnreadCount(userId: string): Promise<number> {
     if (!this.client) return 0;
-    const count = await this.client.get(`user:${userId}:unread`);
+    const count = await this.client.get(`notifications:unread:${userId}`);
     return count ? parseInt(count, 10) : 0;
   }
 
   // Increment unread count
   async incrementUnreadCount(userId: string): Promise<number> {
     if (!this.client) return 0;
-    return this.client.incr(`user:${userId}:unread`);
+    return this.client.incr(`notifications:unread:${userId}`);
   }
 
   // Reset unread count
   async resetUnreadCount(userId: string): Promise<void> {
     if (!this.client) return;
-    await this.client.set(`user:${userId}:unread`, '0');
+    await this.client.set(`notifications:unread:${userId}`, '0');
   }
 
   // Get online users count

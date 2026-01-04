@@ -25,6 +25,7 @@ import {
   Badge,
   Textarea,
   Select,
+  useToastActions,
 } from '@/components/ui';
 import { reportService } from '@/services/report.service';
 import { useAuth, useIsPejabatMuda, useIsPejabatUtama } from '@/stores/auth.store';
@@ -82,6 +83,7 @@ export function ReportDetailPage() {
   const { user } = useAuth();
   const isPejabatMuda = useIsPejabatMuda();
   const isPejabatUtama = useIsPejabatUtama();
+  const toast = useToastActions();
 
   const [comment, setComment] = useState('');
   const [newStatus, setNewStatus] = useState<ReportStatus | ''>('');
@@ -107,6 +109,10 @@ export function ReportDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['report', id] });
       setComment('');
+      toast.success('Komentar berhasil ditambahkan');
+    },
+    onError: () => {
+      toast.error('Gagal menambahkan komentar');
     },
   });
 
@@ -135,10 +141,14 @@ export function ReportDetailPage() {
   const updateStatusMutation = useMutation({
     mutationFn: ({ status, note }: { status: ReportStatus; note?: string }) =>
       reportService.updateStatus(id!, status, note),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['report', id] });
       setNewStatus('');
       setStatusNote('');
+      toast.success(`Status berhasil diubah ke "${getStatusLabel(variables.status)}"`);
+    },
+    onError: () => {
+      toast.error('Gagal mengubah status laporan');
     },
   });
 
@@ -148,6 +158,10 @@ export function ReportDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['report', id] });
       setEscalateNote('');
       setShowEscalateForm(false);
+      toast.success('Laporan berhasil dieskalasi ke Pejabat Utama');
+    },
+    onError: () => {
+      toast.error('Gagal mengeskali laporan');
     },
   });
 

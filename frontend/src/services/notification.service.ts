@@ -25,7 +25,7 @@ export const notificationService = {
   },
 
   async markAllAsRead(): Promise<ApiResponse<void>> {
-    return apiRequest<void>('PATCH', '/notifications/read-all');
+    return apiRequest<void>('POST', '/notifications/read-all');
   },
 
   async deleteNotification(id: string): Promise<ApiResponse<void>> {

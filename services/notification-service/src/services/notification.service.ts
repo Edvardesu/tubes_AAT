@@ -424,6 +424,23 @@ class NotificationService {
 
     await redisClient.resetUnreadCount(userId);
   }
+
+  // Delete a notification
+  async deleteNotification(notificationId: string, userId: string): Promise<void> {
+    const notification = await prisma.notification.findFirst({
+      where: { id: notificationId, userId },
+    });
+
+    if (!notification) {
+      throw new Error('Notification not found');
+    }
+
+    await prisma.notification.delete({
+      where: { id: notificationId },
+    });
+
+    logger.info('Notification deleted', { notificationId, userId });
+  }
 }
 
 export const notificationService = new NotificationService();

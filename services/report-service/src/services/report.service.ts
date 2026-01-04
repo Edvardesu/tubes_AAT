@@ -686,6 +686,7 @@ class ReportService {
         oldStatus,
         newStatus,
         changedById: staffId,
+        reporterId: updated.reporterId || undefined,
       });
     } catch (error) {
       logger.error('Failed to publish status updated event', { error, reportId });
@@ -837,6 +838,9 @@ class ReportService {
         oldStatus,
         newStatus,
         changedById: staffId,
+        reporterId: updated.reporterId || undefined,
+        departmentId: updated.departmentId || undefined,
+        escalationLevel: updated.escalationLevel,
       });
     } catch (error) {
       logger.error('Failed to publish report escalated event', { error, reportId });
