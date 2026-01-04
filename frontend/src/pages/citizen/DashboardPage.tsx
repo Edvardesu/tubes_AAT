@@ -39,8 +39,8 @@ export function DashboardPage() {
     queryFn: () => notificationService.getNotifications({ page: 1, limit: 5 }),
   });
 
-  const reports = reportsData?.data || [];
-  const notifications = notificationsData?.data || [];
+  const reports = reportsData?.data?.reports || [];
+  const notifications = notificationsData?.data?.notifications || [];
   const stats = statsData?.data;
 
   const totalReports = stats?.total || 0;

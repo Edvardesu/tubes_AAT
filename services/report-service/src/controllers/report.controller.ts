@@ -23,8 +23,10 @@ export const listReports = async (req: Request, res: Response, next: NextFunctio
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      data: result.data,
-      meta: result.meta,
+      data: {
+        reports: result.data,
+        meta: result.meta,
+      },
     });
   } catch (error) {
     next(error);
@@ -51,8 +53,10 @@ export const listPublicReports = async (req: Request, res: Response, next: NextF
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      data: result.data,
-      meta: result.meta,
+      data: {
+        reports: result.data,
+        meta: result.meta,
+      },
     });
   } catch (error) {
     next(error);
@@ -210,8 +214,10 @@ export const getMyReports = async (req: Request, res: Response, next: NextFuncti
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      data: result.data,
-      meta: result.meta,
+      data: {
+        reports: result.data,
+        meta: result.meta,
+      },
     });
   } catch (error) {
     next(error);
@@ -355,8 +361,10 @@ export const getDepartmentReports = async (req: Request, res: Response, next: Ne
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      data: result.data,
-      meta: result.meta,
+      data: {
+        reports: result.data,
+        meta: result.meta,
+      },
     });
   } catch (error) {
     next(error);
@@ -382,8 +390,10 @@ export const getEscalatedReports = async (req: Request, res: Response, next: Nex
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      data: result.data,
-      meta: result.meta,
+      data: {
+        reports: result.data,
+        meta: result.meta,
+      },
     });
   } catch (error) {
     next(error);

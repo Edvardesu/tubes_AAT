@@ -6,7 +6,6 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
-  XCircle,
   ArrowUpRight,
   Building2,
 } from 'lucide-react';
@@ -44,8 +43,8 @@ export function AdminDashboardPage() {
   });
 
   const stats = statsData?.data;
-  const reports = reportsData?.data || [];
-  const escalatedCount = escalatedData?.meta?.total || 0;
+  const reports = reportsData?.data?.reports || [];
+  const escalatedCount = escalatedData?.data?.meta?.total || 0;
 
   // Determine title based on role
   const getDashboardTitle = () => {

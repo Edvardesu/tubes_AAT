@@ -46,11 +46,11 @@ export const authService = {
   },
 
   async getProfile(): Promise<ApiResponse<User>> {
-    return apiRequest<User>('GET', '/auth/profile');
+    return apiRequest<User>('GET', '/users/me');
   },
 
   async updateProfile(data: Partial<User>): Promise<ApiResponse<User>> {
-    return apiRequest<User>('PUT', '/auth/profile', data);
+    return apiRequest<User>('PATCH', '/users/me', data);
   },
 
   async changePassword(data: { currentPassword: string; newPassword: string }): Promise<ApiResponse<void>> {

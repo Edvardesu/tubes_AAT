@@ -55,8 +55,8 @@ export function AdminEscalatedPage() {
       }),
   });
 
-  const reports = data?.data || [];
-  const meta = data?.meta;
+  const reports = data?.data?.reports || [];
+  const meta = data?.data?.meta;
 
   return (
     <>
@@ -177,10 +177,10 @@ export function AdminEscalatedPage() {
                               <Clock className="w-3 h-3" />
                               {formatRelativeTime(report.createdAt)}
                             </span>
-                            {report.lastEscalatedAt && (
+                            {report.status === 'ESCALATED' && (
                               <span className="flex items-center gap-1 text-orange-600">
                                 <ArrowUpRight className="w-3 h-3" />
-                                Dieskalasi {formatRelativeTime(report.lastEscalatedAt)}
+                                Dieskalasi {formatRelativeTime(report.updatedAt)}
                               </span>
                             )}
                           </div>

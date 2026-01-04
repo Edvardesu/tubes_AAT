@@ -89,9 +89,10 @@ export function ReportDetailPage() {
   const [escalateNote, setEscalateNote] = useState('');
   const [showEscalateForm, setShowEscalateForm] = useState(false);
 
-  const isAdmin = user?.role === 'ADMIN' || user?.roles?.some((ur) =>
-    ['ADMIN', 'CITY_ADMIN', 'DEPARTMENT_HEAD', 'STAFF_L1', 'STAFF_L2', 'STAFF_L3'].includes(ur.role?.name ?? ur.name ?? '')
-  );
+  const isAdmin = user?.role === 'ADMIN' || user?.roles?.some((ur) => {
+    const roleName = typeof ur === 'string' ? ur : (ur.role?.name ?? '');
+    return ['ADMIN', 'CITY_ADMIN', 'DEPARTMENT_HEAD', 'STAFF_L1', 'STAFF_L2', 'STAFF_L3'].includes(roleName);
+  });
   const justCreated = location.state?.justCreated;
   const referenceNumber = location.state?.referenceNumber;
 

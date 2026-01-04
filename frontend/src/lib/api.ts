@@ -38,13 +38,13 @@ api.interceptors.response.use(
           throw new Error('No refresh token');
         }
 
-        const response = await axios.post<ApiResponse<{ accessToken: string; refreshToken: string }>>(
+        const response = await axios.post<ApiResponse<{ tokens: { accessToken: string; refreshToken: string } }>>(
           `${API_BASE_URL}/auth/refresh`,
           { refreshToken }
         );
 
-        if (response.data.success && response.data.data) {
-          const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+        if (response.data.success && response.data.data?.tokens) {
+          const { accessToken, refreshToken: newRefreshToken } = response.data.data.tokens;
           localStorage.setItem('accessToken', accessToken);
           localStorage.setItem('refreshToken', newRefreshToken);
 

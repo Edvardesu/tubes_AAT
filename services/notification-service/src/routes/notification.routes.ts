@@ -22,8 +22,10 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      data: result.notifications,
-      meta: result.meta,
+      data: {
+        notifications: result.notifications,
+        meta: result.meta,
+      },
     });
   } catch (error) {
     next(error);

@@ -89,8 +89,8 @@ export function AdminReportsPage() {
           }),
   });
 
-  const reports = data?.data || [];
-  const meta = data?.meta;
+  const reports = data?.data?.reports || [];
+  const meta = data?.data?.meta;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

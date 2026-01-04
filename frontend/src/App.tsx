@@ -60,9 +60,10 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  const isAdmin = user?.role === 'ADMIN' || user?.roles?.some((ur) =>
-    ['ADMIN', 'CITY_ADMIN', 'DEPARTMENT_HEAD', 'STAFF_L1', 'STAFF_L2', 'STAFF_L3'].includes(ur.role?.name ?? ur.name ?? '')
-  );
+  const isAdmin = user?.role === 'ADMIN' || user?.roles?.some((ur) => {
+    const roleName = typeof ur === 'string' ? ur : (ur.role?.name ?? '');
+    return ['ADMIN', 'CITY_ADMIN', 'DEPARTMENT_HEAD', 'STAFF_L1', 'STAFF_L2', 'STAFF_L3'].includes(roleName);
+  });
 
   if (!isAdmin) {
     return <Navigate to="/dashboard" replace />;
@@ -87,9 +88,10 @@ function PejabatRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  const isPejabat = user?.roles?.some((ur) =>
-    ['DEPARTMENT_HEAD', 'STAFF_L1', 'STAFF_L2'].includes(ur.role?.name ?? ur.name ?? '')
-  );
+  const isPejabat = user?.roles?.some((ur) => {
+    const roleName = typeof ur === 'string' ? ur : (ur.role?.name ?? '');
+    return ['DEPARTMENT_HEAD', 'STAFF_L1', 'STAFF_L2'].includes(roleName);
+  });
 
   if (!isPejabat) {
     return <Navigate to="/admin/staff" replace />;
@@ -114,9 +116,10 @@ function PejabatUtamaRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  const isPejabatUtama = user?.roles?.some((ur) =>
-    ['DEPARTMENT_HEAD', 'STAFF_L2'].includes(ur.role?.name ?? ur.name ?? '')
-  );
+  const isPejabatUtama = user?.roles?.some((ur) => {
+    const roleName = typeof ur === 'string' ? ur : (ur.role?.name ?? '');
+    return ['DEPARTMENT_HEAD', 'STAFF_L2'].includes(roleName);
+  });
 
   if (!isPejabatUtama) {
     return <Navigate to="/admin" replace />;
