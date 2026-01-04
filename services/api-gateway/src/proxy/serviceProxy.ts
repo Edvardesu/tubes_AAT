@@ -55,6 +55,22 @@ const serviceRoutes: ServiceRoute[] = [
     serviceName: 'report-service',
     requireAuth: true,
   },
+
+  // Notification Service Routes
+  {
+    path: '/notifications',
+    target: config.services.notificationService,
+    serviceName: 'notification-service',
+    requireAuth: true,
+  },
+
+  // Analytics Service Routes
+  {
+    path: '/analytics',
+    target: config.services.analyticsService,
+    serviceName: 'analytics-service',
+    requireAuth: true,
+  },
 ];
 
 // Handle multipart requests by piping raw stream

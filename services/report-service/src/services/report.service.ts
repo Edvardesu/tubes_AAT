@@ -44,6 +44,19 @@ export interface ListReportsQuery {
   sortOrder?: 'asc' | 'desc';
 }
 
+// Category to department code mapping
+const CATEGORY_TO_DEPARTMENT: Record<string, string> = {
+  INFRASTRUCTURE: 'INFRASTRUKTUR',
+  PUBLIC_SERVICE: 'SOSIAL',
+  ENVIRONMENT: 'KEBERSIHAN',
+  SECURITY: 'KEAMANAN',
+  SOCIAL: 'SOSIAL',
+  HEALTH: 'KESEHATAN',
+  EDUCATION: 'SOSIAL', // No education dept, fallback to social
+  TRANSPORTATION: 'INFRASTRUKTUR', // Fallback to infrastructure
+  OTHER: 'INFRASTRUKTUR', // Default fallback
+};
+
 export interface ReportWithDetails extends Report {
   reporter?: {
     id: string;
@@ -122,6 +135,17 @@ class ReportService {
     const locationLat = input.locationLat ? parseFloat(String(input.locationLat)) : null;
     const locationLng = input.locationLng ? parseFloat(String(input.locationLng)) : null;
 
+    // Look up department based on category
+    const departmentCode = CATEGORY_TO_DEPARTMENT[input.category] || 'INFRASTRUKTUR';
+    const department = await prisma.department.findFirst({
+      where: { code: departmentCode },
+      select: { id: true },
+    });
+
+    if (!department) {
+      logger.warn('Department not found for category', { category: input.category, departmentCode });
+    }
+
     // Create report
     const report = await prisma.report.create({
       data: {
@@ -139,6 +163,7 @@ class ReportService {
         isAnonymous,
         slaDeadline,
         escalationLevel: 1,
+        departmentId: department?.id || null,
       },
       include: {
         reporter: {

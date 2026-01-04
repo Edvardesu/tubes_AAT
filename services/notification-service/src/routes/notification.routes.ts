@@ -1,8 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { notificationService, preferenceService } from '../services';
 import { HTTP_STATUS } from '@lapor-pakdhe/shared';
+import { authenticate } from '../middleware';
 
 const router = Router();
+
+// Apply authentication to all routes
+router.use(authenticate);
 
 // GET /notifications - Get user notifications
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {

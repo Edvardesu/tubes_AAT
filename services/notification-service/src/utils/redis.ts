@@ -93,6 +93,15 @@ class RedisClient {
     return count || 0;
   }
 
+  // Decrement unread notification count
+  async decrementUnreadCount(userId: string): Promise<number> {
+    const current = await this.getUnreadCount(userId);
+    if (current <= 0) return 0;
+
+    const count = await this.client?.decr(`notifications:unread:${userId}`);
+    return Math.max(count || 0, 0);
+  }
+
   // Reset unread notification count
   async resetUnreadCount(userId: string): Promise<void> {
     await this.client?.set(`notifications:unread:${userId}`, 0);

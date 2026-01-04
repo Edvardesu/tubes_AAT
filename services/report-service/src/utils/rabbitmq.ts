@@ -30,6 +30,7 @@ export interface ReportEvent {
     newStatus?: string;
     notes?: string;
     changedById?: string;
+    escalationLevel?: number;
   };
 }
 

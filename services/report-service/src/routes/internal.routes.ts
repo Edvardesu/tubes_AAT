@@ -116,6 +116,65 @@ router.patch('/reports/:id/escalate', async (req: Request, res: Response, next: 
   }
 });
 
+// Category to department code mapping
+const CATEGORY_TO_DEPARTMENT: Record<string, string> = {
+  INFRASTRUCTURE: 'INFRASTRUKTUR',
+  PUBLIC_SERVICE: 'SOSIAL',
+  ENVIRONMENT: 'KEBERSIHAN',
+  SECURITY: 'KEAMANAN',
+  SOCIAL: 'SOSIAL',
+  HEALTH: 'KESEHATAN',
+  EDUCATION: 'SOSIAL',
+  TRANSPORTATION: 'INFRASTRUKTUR',
+  OTHER: 'INFRASTRUKTUR',
+};
+
+// POST /internal/reports/migrate-departments - Assign departments to reports with null departmentId
+router.post('/reports/migrate-departments', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Get all departments
+    const departments = await prisma.department.findMany({
+      select: { id: true, code: true },
+    });
+
+    const deptMap = new Map(departments.map(d => [d.code, d.id]));
+
+    // Get all reports with null departmentId
+    const reportsToUpdate = await prisma.report.findMany({
+      where: { departmentId: null },
+      select: { id: true, category: true },
+    });
+
+    let updatedCount = 0;
+
+    for (const report of reportsToUpdate) {
+      const deptCode = CATEGORY_TO_DEPARTMENT[report.category] || 'INFRASTRUKTUR';
+      const departmentId = deptMap.get(deptCode);
+
+      if (departmentId) {
+        await prisma.report.update({
+          where: { id: report.id },
+          data: { departmentId },
+        });
+        updatedCount++;
+      }
+    }
+
+    logger.info('Reports migrated with departments', {
+      totalReports: reportsToUpdate.length,
+      updatedCount,
+    });
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: `Migrated ${updatedCount} reports to departments`,
+      data: { totalReports: reportsToUpdate.length, updatedCount },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // PATCH /internal/reports/:id/assign-department - Assign department (for routing service)
 router.patch('/reports/:id/assign-department', async (req: Request, res: Response, next: NextFunction) => {
   try {

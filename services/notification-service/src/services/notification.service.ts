@@ -152,17 +152,17 @@ class NotificationService {
     }
   }
 
-  // Handle report.created event - notify admins
+  // Handle report.created event - notify admins and staff
   async handleReportCreated(event: ReportEvent): Promise<void> {
     const template = NOTIFICATION_TEMPLATES.REPORT_CREATED;
 
-    // Get all admin users to notify (with email for email notifications)
+    // Get all admin and staff users to notify (with email for email notifications)
     const adminUsers = await prisma.user.findMany({
       where: {
         roles: {
           some: {
             role: {
-              name: { in: ['ADMIN', 'CITY_ADMIN'] },
+              name: { in: ['ADMIN', 'STAFF_L1', 'STAFF_L2', 'STAFF_L3'] },
             },
           },
         },
@@ -267,24 +267,27 @@ class NotificationService {
     });
   }
 
-  // Handle report.escalated event - notify department heads
+  // Handle report.escalated event - notify pejabat utama (STAFF_L2, STAFF_L3) and admins
   async handleReportEscalated(event: ReportEvent): Promise<void> {
     const template = NOTIFICATION_TEMPLATES.REPORT_ESCALATED;
 
-    // Get department heads and admins (with email for email notifications)
+    // Get pejabat utama (STAFF_L2, STAFF_L3) and admins (with email for email notifications)
     const usersToNotify = await prisma.user.findMany({
       where: {
         OR: [
           {
+            // Notify admins and pejabat utama
             roles: {
               some: {
-                role: { name: { in: ['ADMIN', 'CITY_ADMIN', 'DEPARTMENT_HEAD'] } },
+                role: { name: { in: ['ADMIN', 'STAFF_L2', 'STAFF_L3'] } },
               },
             },
           },
           {
+            // Also notify staff in the same department
             staffProfile: {
               departmentId: event.data.departmentId,
+              level: { in: ['LEVEL_2', 'LEVEL_3'] }, // Only pejabat utama level
             },
           },
         ],
@@ -412,6 +415,10 @@ class NotificationService {
         where: { id: notificationId },
         data: { isRead: true },
       });
+
+      // Decrement unread count and publish update
+      const newCount = await redisClient.decrementUnreadCount(userId);
+      await redisClient.publishUnreadCount(userId, newCount);
     }
   }
 
@@ -423,6 +430,7 @@ class NotificationService {
     });
 
     await redisClient.resetUnreadCount(userId);
+    await redisClient.publishUnreadCount(userId, 0);
   }
 
   // Delete a notification
@@ -438,6 +446,12 @@ class NotificationService {
     await prisma.notification.delete({
       where: { id: notificationId },
     });
+
+    // If notification was unread, decrement count and publish
+    if (!notification.isRead) {
+      const newCount = await redisClient.decrementUnreadCount(userId);
+      await redisClient.publishUnreadCount(userId, newCount);
+    }
 
     logger.info('Notification deleted', { notificationId, userId });
   }
