@@ -20,7 +20,7 @@ export function HomePage() {
 
   return (
     <div className="min-h-screen">
-      <section className="relative bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 text-white overflow-hidden">
+      <section className="relative bg-gradient-to-br from-primary-500 via-primary-700 to-primary-950 text-white overflow-hidden">
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-20">
           <div className="absolute inset-0" style={{
@@ -79,7 +79,7 @@ export function HomePage() {
             <div className="relative lg:block animate-in fade-in slide-in-from-right-8 duration-700 delay-300">
               <div className="relative z-10">
                 {/* Card 1 */}
-                <div className="absolute top-0 right-0 bg-white rounded-2xl shadow-2xl p-6 max-w-xs animate-float">
+                <div className="absolute top-0 right-0 bg-white rounded-2xl shadow-2xl p-6 max-w-xs animate-float-delayed">
                   <div className="flex items-start gap-4">
                     <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
                       <CheckCircle className="w-6 h-6 text-green-600" />
@@ -99,7 +99,7 @@ export function HomePage() {
                 </div>
 
                 {/* Card 2 */}
-                <div className="absolute top-32 left-0 bg-white rounded-2xl shadow-2xl p-6 max-w-xs animate-float-delayed">
+                <div className="absolute top-32 left-0 bg-white rounded-2xl shadow-2xl p-6 max-w-xs animate-float">
                   <div className="flex items-start gap-4">
                     <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
                       <TrendingUp className="w-6 h-6 text-blue-600" />
@@ -115,7 +115,7 @@ export function HomePage() {
                 </div>
 
                 {/* Card 3 */}
-                <div className="absolute bottom-0 right-12 bg-white rounded-2xl shadow-2xl p-6 max-w-xs animate-float">
+                <div className="absolute bottom-12 right-36 bg-white rounded-2xl shadow-2xl p-6 max-w-xs animate-float">
                   <div className="flex items-start gap-4">
                     <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
                       <Users className="w-6 h-6 text-purple-600" />

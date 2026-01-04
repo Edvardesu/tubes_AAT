@@ -39,7 +39,7 @@ export function MyReportsPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-8 mt-16">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Laporan Saya</h1>
           <p className="text-gray-600">
@@ -53,7 +53,6 @@ export function MyReportsPage() {
         </Link>
       </div>
 
-      {/* Filters */}
       <div className="mb-6">
         <Select
           value={status}
@@ -62,11 +61,10 @@ export function MyReportsPage() {
             setPage(1);
           }}
           options={STATUS_OPTIONS}
-          className="w-48"
+          className="w-40"
         />
       </div>
 
-      {/* Reports List */}
       {isLoading ? (
         <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
@@ -150,7 +148,6 @@ export function MyReportsPage() {
             ))}
           </div>
 
-          {/* Pagination */}
           {meta && meta.totalPages > 1 && (
             <div className="mt-8 flex justify-center gap-2">
               <Button

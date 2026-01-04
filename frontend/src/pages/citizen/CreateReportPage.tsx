@@ -74,7 +74,6 @@ export function CreateReportPage() {
     const selectedFiles = Array.from(e.target.files || []);
     setFileError(null);
 
-    // Validate files
     for (const file of selectedFiles) {
       if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
         setFileError('Hanya file gambar (JPG, PNG, WebP) yang diperbolehkan');
@@ -148,7 +147,7 @@ export function CreateReportPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
+      <div className="mb-8 mt-16">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Buat Laporan</h1>
         <p className="text-gray-600">
           Isi formulir di bawah untuk membuat laporan baru

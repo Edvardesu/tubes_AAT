@@ -26,10 +26,8 @@ export function Navbar() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
-  // Check if current page is homepage
   const isHomePage = location.pathname === '/';
 
-  // Detect scroll for navbar transformation
   useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > 50) {
@@ -48,7 +46,6 @@ export function Navbar() {
     navigate('/login');
   };
 
-  // Determine if navbar should be transparent (only on homepage when not scrolled)
   const isTransparent = isHomePage && !isScrolled;
 
   return (
@@ -62,7 +59,6 @@ export function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center">
-          {/* Logo & Primary Nav */}
           <div className="flex items-center space-x-8">
             <Link to="/" className="flex items-center">
               <span
@@ -75,7 +71,6 @@ export function Navbar() {
               </span>
             </Link>
 
-            {/* Desktop Nav Links */}
             <div className="hidden md:flex md:space-x-1">
               <Link
                 to="/"
@@ -113,11 +108,9 @@ export function Navbar() {
             </div>
           </div>
 
-          {/* Right Side */}
           <div className="flex items-center space-x-3">
             {isAuthenticated ? (
               <>
-                {/* Create Report Button */}
                 <Link to="/create-report" className="hidden sm:block">
                   <Button
                     size="sm"
@@ -131,7 +124,6 @@ export function Navbar() {
                   </Button>
                 </Link>
 
-                {/* Notifications */}
                 <Link
                   to="/notifications"
                   className={cn(
@@ -182,13 +174,11 @@ export function Navbar() {
                   {/* Dropdown */}
                   {isUserMenuOpen && (
                     <>
-                      {/* Backdrop */}
                       <div
                         className="fixed inset-0 z-40"
                         onClick={() => setIsUserMenuOpen(false)}
                       />
-                      {/* Menu */}
-                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                         <div className="px-4 py-3 border-b border-gray-100">
                           <p className="text-sm font-semibold text-gray-900">
                             {user?.fullName}
