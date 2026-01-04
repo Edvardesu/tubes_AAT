@@ -118,6 +118,10 @@ class ReportService {
     const priority = 3;
     const slaDeadline = this.calculateSlaDeadline(priority);
 
+    // Parse location coordinates to float (they may come as strings from form data)
+    const locationLat = input.locationLat ? parseFloat(String(input.locationLat)) : null;
+    const locationLng = input.locationLng ? parseFloat(String(input.locationLng)) : null;
+
     // Create report
     const report = await prisma.report.create({
       data: {
@@ -128,8 +132,8 @@ class ReportService {
         type: reportType,
         status: ReportStatus.PENDING,
         priority,
-        locationLat: input.locationLat,
-        locationLng: input.locationLng,
+        locationLat: locationLat && !isNaN(locationLat) ? locationLat : null,
+        locationLng: locationLng && !isNaN(locationLng) ? locationLng : null,
         locationAddress: input.locationAddress,
         reporterId: isAnonymous ? null : userId,
         isAnonymous,
