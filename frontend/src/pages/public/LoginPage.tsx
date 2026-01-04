@@ -42,13 +42,15 @@ export function LoginPage() {
       if (response.success && response.data) {
         const user = response.data.user;
 
-        // Check user roles
-        const isPejabat = user?.roles?.some((ur: any) =>
-          ['DEPARTMENT_HEAD', 'STAFF_L1', 'STAFF_L2'].includes(ur.role?.name ?? ur.name ?? '')
-        );
-        const isAdminOnly = user?.roles?.some((ur: any) =>
-          ['ADMIN', 'CITY_ADMIN'].includes(ur.role?.name ?? ur.name ?? '')
-        ) && !isPejabat;
+        // Check user roles (backend returns roles as string[])
+        const isPejabat = user?.roles?.some((ur: any) => {
+          const roleName = typeof ur === 'string' ? ur : (ur.role?.name ?? '');
+          return ['DEPARTMENT_HEAD', 'STAFF_L1', 'STAFF_L2'].includes(roleName);
+        });
+        const isAdminOnly = user?.roles?.some((ur: any) => {
+          const roleName = typeof ur === 'string' ? ur : (ur.role?.name ?? '');
+          return ['ADMIN', 'CITY_ADMIN'].includes(roleName);
+        }) && !isPejabat;
 
         // Call login to update auth state
         await login(data.email, data.password);
